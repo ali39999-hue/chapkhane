@@ -1,0 +1,30 @@
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.0.0/Vazirmatn-font-face.css');
+
+:root {
+  --font-family: 'Vazirmatn', sans-serif !important;
+  --font-body: 'Vazirmatn', sans-serif !important;
+}
+
+body, html, * {
+  font-family: 'Vazirmatn', sans-serif !important;
+}
+
+/* Base RTL enforcement for Payload 3.0 */
+html {
+  direction: rtl;
+}
+
+/* Custom Dashboard RTL fixes if any */
+.dashboard-custom-container {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Adjusting Payload default components to look better in RTL */
+.template-default {
+  direction: rtl;
+}
+
+.field-type {
+  text-align: right;
+}

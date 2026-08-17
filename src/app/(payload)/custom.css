@@ -1,0 +1,34 @@
+/* Payload Admin Panel RTL & Persian Font Overrides */
+
+body {
+  font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif !important;
+  direction: rtl;
+}
+
+/* Fix sidebar for RTL */
+.payload__nav {
+  border-right: none;
+  border-left: 1px solid var(--theme-elevation-100);
+}
+
+/* Fix inputs and forms for RTL */
+.field-type {
+  text-align: right;
+}
+
+/* Ensure toast notifications appear correctly */
+.toast-container {
+  right: auto !important;
+  left: 20px !important;
+}
+
+/* Invert icons where necessary, like back arrows */
+.back-btn svg, .step-nav__chevron svg {
+  transform: rotate(180deg);
+}
+
+/* Adjust margin for inputs */
+.field-type .label {
+  margin-right: 0;
+  margin-left: 10px;
+}

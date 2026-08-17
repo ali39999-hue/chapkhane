@@ -1,0 +1,103 @@
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+
+.print-container {
+  font-family: 'Vazirmatn', Tahoma, sans-serif;
+  background-color: #f1f5f9;
+  min-height: 100vh;
+  padding: 80px 20px 40px;
+}
+
+.invoice-paper {
+  background-color: white;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 15mm;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  color: black;
+}
+
+.invoice-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.info-box {
+  border: 1px solid black;
+  margin-bottom: 10px;
+}
+
+.info-title {
+  background-color: #f1f1f1;
+  border-bottom: 1px solid black;
+  padding: 5px 10px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 10px;
+  font-size: 12px;
+}
+
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  font-size: 12px;
+}
+
+.invoice-table th, .invoice-table td {
+  border: 1px solid black;
+  padding: 8px 5px;
+}
+
+.invoice-table th {
+  background-color: #f1f1f1;
+  text-align: center;
+}
+
+.signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 50px;
+}
+
+.sig-box {
+  width: 45%;
+  text-align: center;
+  font-weight: bold;
+  height: 100px;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  
+  body {
+    background-color: white;
+    margin: 0;
+  }
+  
+  .print-container {
+    padding: 0;
+    background-color: white;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  .invoice-paper {
+    width: 100%;
+    box-shadow: none;
+    margin: 0;
+    padding: 10mm;
+  }
+}

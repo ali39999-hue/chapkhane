@@ -1,0 +1,22 @@
+FROM node:20-alpine
+
+# Install Ghostscript, Poppler (for pdfinfo, pdffonts)
+RUN apk add --no-cache \
+    ghostscript \
+    poppler-utils \
+    qpdf
+
+WORKDIR /app
+
+# We will just copy package files and install production dependencies
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install --prod
+
+# Copy the worker script
+COPY src/worker src/worker
+
+# Use tsx to run the script. Since we only installed --prod, we need tsx globally
+RUN npm install -g tsx
+
+# Command to run the worker
+CMD ["tsx", "src/worker/index.ts"]
