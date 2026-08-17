@@ -13,12 +13,18 @@ export const metadata: Metadata = {
 };
 
 export default async function ProductsPage() {
-  const payload = await getPayload({ config: configPromise });
-  const productsRes = await payload.find({
-    collection: "product-types",
-    limit: 100,
-    sort: "name",
-  });
+  let productsRes = { docs: [] };
+  try {
+    const payload = await getPayload({ config: configPromise });
+    const res = await payload.find({
+      collection: "product-types",
+      limit: 100,
+      sort: "name",
+    });
+    productsRes = res;
+  } catch (err) {
+    console.warn("Could not fetch products during build:", err);
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-20 relative overflow-hidden font-sans">

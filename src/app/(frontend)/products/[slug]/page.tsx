@@ -11,28 +11,38 @@ import { Cpu } from "lucide-react";
 export const revalidate = 300;
 
 export async function generateStaticParams() {
-  const payload = await getPayload({ config: configPromise });
-  const res = await payload.find({
-    collection: "product-types",
-    limit: 100,
-    select: { slug: true },
-  });
-  return res.docs.map((d) => ({ slug: d.slug }));
+  try {
+    const payload = await getPayload({ config: configPromise });
+    const res = await payload.find({
+      collection: "product-types",
+      limit: 100,
+      select: { slug: true },
+    });
+    return res.docs.map((d) => ({ slug: d.slug }));
+  } catch (err) {
+    console.warn("Could not generate static params (DB might be empty)", err);
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const payload = await getPayload({ config: configPromise });
   
-  const productRes = await payload.find({
-    collection: "product-types",
-    where: { slug: { equals: slug } },
-    limit: 1,
-  });
+  let product = null;
+  try {
+    const res = await payload.find({
+      collection: "product-types",
+      where: { slug: { equals: slug } },
+      limit: 1,
+    });
+    product = res.docs[0];
+  } catch (err) {
+    console.warn("Error fetching product", err);
+  }
 
-  if (productRes.totalDocs === 0) return { title: "یافت نشد" };
+  if (!product) return { title: "یافت نشد" };
 
-  const product = productRes.docs[0];
   const title = `سفارش آنلاین ${product.name} | چاپخانه نگار`;
   const description = `شخصی‌سازی و سفارش آنلاین ${product.name} با محاسبه زنده فاکتور و بررسی هوشمند فایل قبل از لیتوگرافی.`;
 
@@ -53,24 +63,40 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const payload = await getPayload({ config: configPromise });
   
-  const productRes = await payload.find({
-    collection: "product-types",
-    where: { slug: { equals: slug } },
-    limit: 1,
-  });
+  let productRes = { totalDocs: 0, docs: [] as any[] };
+  let papersRes = { docs: [] as any[] };
+  let sizesRes = { docs: [] as any[] };
+  let finishingsRes = { docs: [] as any[] };
+  let turnaroundsRes = { docs: [] as any[] };
+
+  try {
+    productRes = await payload.find({
+      collection: "product-types",
+      where: { slug: { equals: slug } },
+      limit: 1,
+    });
+
+    if (productRes.totalDocs > 0) {
+      const results = await Promise.all([
+        payload.find({ collection: "paper-types", limit: 50, where: { active: { equals: true } } }),
+        payload.find({ collection: "print-sizes", limit: 50 }),
+        payload.find({ collection: "finishing-options", limit: 50, where: { active: { equals: true } } }),
+        payload.find({ collection: "turnaround-options", limit: 10 }),
+      ]);
+      papersRes = results[0];
+      sizesRes = results[1];
+      finishingsRes = results[2];
+      turnaroundsRes = results[3];
+    }
+  } catch (err) {
+    console.warn("Error fetching product data", err);
+  }
 
   if (productRes.totalDocs === 0) {
     notFound();
   }
 
   const product = productRes.docs[0];
-
-  const [papersRes, sizesRes, finishingsRes, turnaroundsRes] = await Promise.all([
-    payload.find({ collection: "paper-types", limit: 50, where: { active: { equals: true } } }),
-    payload.find({ collection: "print-sizes", limit: 50 }),
-    payload.find({ collection: "finishing-options", limit: 50, where: { active: { equals: true } } }),
-    payload.find({ collection: "turnaround-options", limit: 10 }),
-  ]);
 
   const allowedPaperIds = product.allowedPapers?.map((p: any) => typeof p === 'object' && p !== null ? p.id : p) || [];
   const papers = allowedPaperIds.length > 0 
