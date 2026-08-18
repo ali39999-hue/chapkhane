@@ -1,5 +1,5 @@
 import { CollectionConfig } from 'payload'
-import { isStaff } from '../../access'
+import { staffOnly } from '../../access'
 
 export const TemplateRequests: CollectionConfig = {
   slug: 'template-requests',
@@ -13,9 +13,9 @@ export const TemplateRequests: CollectionConfig = {
     // Anyone can submit a request (even guests)
     create: () => true,
     // Only staff can read/update/delete
-    read: isStaff,
-    update: isStaff,
-    delete: isStaff,
+    read: staffOnly,
+    update: staffOnly,
+    delete: staffOnly,
   },
   fields: [
     {
