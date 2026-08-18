@@ -8,8 +8,10 @@ import {
   CheckCircle2, 
   Layers,
   FileCode2,
-  Settings
+  Settings,
+  Loader2
 } from "lucide-react";
+import { submitTemplateRequest } from "@/app/(frontend)/templates/actions";
 
 interface TemplateItem {
   id: string;
@@ -129,6 +131,8 @@ export function TemplatesGalleryView() {
   const [notifyModal, setNotifyModal] = useState(false);
   const [templateRequest, setTemplateRequest] = useState("");
   const [requestSent, setRequestSent] = useState(false);
+  const [isPending, startTransition] = React.useTransition();
+  const [errorMsg, setErrorMsg] = useState("");
 
   const filteredTemplates = useMemo(() => {
     return DEFAULT_TEMPLATES.filter((t) => {
@@ -321,11 +325,23 @@ export function TemplatesGalleryView() {
                   className="w-full p-4 rounded-xl bg-secondary-50 border border-secondary-200 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 text-sm font-bold text-secondary-900 resize-none"
                 />
                 <button
-                  onClick={() => setRequestSent(true)}
-                  className="w-full h-12 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-xl transition-all shadow-md shadow-primary-600/20"
+                  onClick={() => {
+                    setErrorMsg("");
+                    startTransition(async () => {
+                      try {
+                        await submitTemplateRequest(templateRequest);
+                        setRequestSent(true);
+                      } catch (err: any) {
+                        setErrorMsg(err.message || "خطایی رخ داد");
+                      }
+                    });
+                  }}
+                  disabled={isPending || !templateRequest.trim()}
+                  className="w-full h-12 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center"
                 >
-                  ثبت درخواست
+                  {isPending ? <Loader2 className="animate-spin" size={18} /> : "ثبت درخواست"}
                 </button>
+                {errorMsg && <p className="text-red-500 text-xs font-bold text-center mt-2">{errorMsg}</p>}
                 <button
                   onClick={() => setNotifyModal(false)}
                   className="w-full h-12 bg-secondary-100 hover:bg-secondary-200 text-secondary-700 font-bold text-sm rounded-xl transition-all"

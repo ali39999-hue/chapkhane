@@ -48,6 +48,7 @@ import { Posts } from './src/payload/collections/content/Posts'
 import { Pages } from './src/payload/collections/content/Pages'
 import { FAQs } from './src/payload/collections/content/FAQs'
 import { Templates } from './src/payload/collections/content/Templates'
+import { TemplateRequests } from './src/payload/collections/content/TemplateRequests'
 import { SiteSettings } from './src/payload/globals/SiteSettings'
 
 const filename = fileURLToPath(import.meta.url)
@@ -114,6 +115,7 @@ export default buildConfig({
     Pages,
     FAQs,
     Templates,
+    TemplateRequests,
   ],
   plugins: [
     ...(process.env.USE_S3 === 'true' ? [
