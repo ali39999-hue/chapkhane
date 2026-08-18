@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function TemplatesPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-20 font-sans relative overflow-hidden">
+    <main id="main-content" className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-20 font-sans relative overflow-hidden">
       <div className="absolute inset-0 bg-grid-slate opacity-30 pointer-events-none -z-10" />
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary-100/50 rounded-full blur-[100px] -z-10 pointer-events-none" />
 

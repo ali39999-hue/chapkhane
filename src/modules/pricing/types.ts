@@ -34,6 +34,22 @@ export type PricingInput = z.infer<typeof PricingInputSchema>
 export type FinishingInput = z.infer<typeof FinishingInputSchema>
 
 /**
+ * The shape a browser is allowed to send.
+ *
+ * `customerTier` and `couponCode` are money-bearing fields that the engine
+ * trusts unconditionally, so they must never be parsed from a request body:
+ * accepting `couponCode: { type: 'percent', value: 100 }` produced real
+ * zero-Rial orders. The server resolves the tier from the authenticated user
+ * and (once a coupon collection exists) the coupon from the database.
+ */
+export const ClientPricingInputSchema = PricingInputSchema.omit({
+  customerTier: true,
+  couponCode: true,
+})
+
+export type ClientPricingInput = z.infer<typeof ClientPricingInputSchema>
+
+/**
  * Payload's Postgres adapter uses numeric IDs, but the pricing input arrives
  * from the client as strings. Accept both and compare via `sameId`.
  */

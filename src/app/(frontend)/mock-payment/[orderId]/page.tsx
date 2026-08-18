@@ -11,6 +11,9 @@ export default async function MockPaymentPage({ params }: { params: Promise<{ or
       collection: 'orders',
       id: orderId,
       depth: 0,
+      // Only the receipt fields; `priceSnapshot` and `shippingAddress` would
+      // otherwise be serialized into the client payload for nothing.
+      select: { orderNumber: true, status: true, customer: true, totals: true },
     })
     .catch(() => null);
 
@@ -32,5 +35,13 @@ export default async function MockPaymentPage({ params }: { params: Promise<{ or
     );
   }
 
-  return <PaymentMockUI order={order} />;
+  return (
+    <PaymentMockUI
+      order={{
+        id: order.id,
+        orderNumber: order.orderNumber,
+        total: order.totals?.total ?? 0,
+      }}
+    />
+  );
 }

@@ -12,11 +12,17 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN npm install -g pnpm && pnpm install --prod
 
-# Copy the worker script
+# Copy the worker and the shared modules it imports. `src/lib` is required:
+# the worker signs its webhook payloads with `src/lib/webhook-signature`.
+COPY tsconfig.json ./
 COPY src/worker src/worker
+COPY src/lib/webhook-signature.ts src/lib/webhook-signature.ts
 
 # Use tsx to run the script. Since we only installed --prod, we need tsx globally
 RUN npm install -g tsx
+
+# Do not run as root.
+USER node
 
 # Command to run the worker
 CMD ["tsx", "src/worker/index.ts"]

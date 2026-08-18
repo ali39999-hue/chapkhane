@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, staffOnly } from '../../access'
 
 export const OrderItems: CollectionConfig = {
   slug: 'order-items',
@@ -6,14 +7,10 @@ export const OrderItems: CollectionConfig = {
   access: {
     // Customers read their items through the parent order (server-side population).
     // Direct REST reads are restricted to staff to prevent cross-user data leaks.
-    read: ({ req: { user } }) => {
-      if (!user) return false
-      if (['admin', 'operator'].includes(user.role)) return true
-      return false
-    },
-    create: ({ req: { user } }) => ['admin', 'operator'].includes(user?.role || ''),
-    update: ({ req: { user } }) => ['admin', 'operator'].includes(user?.role || ''),
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    read: staffOnly,
+    create: staffOnly,
+    update: staffOnly,
+    delete: adminOnly,
   },
   fields: [
     { name: 'productType', type: 'relationship', relationTo: 'product-types', required: true },
@@ -24,6 +21,25 @@ export const OrderItems: CollectionConfig = {
     { name: 'artwork', type: 'relationship', relationTo: 'artworks' },
     { name: 'designProject', type: 'relationship', relationTo: 'design-projects' },
     { name: 'proofs', type: 'relationship', relationTo: 'proofs', hasMany: true },
-    { name: 'itemStatus', type: 'text' },
+    {
+      name: 'itemStatus',
+      type: 'select',
+      // Was an unconstrained `text` field, so `POST /api/order-items/:id/status`
+      // could write any string into the production pipeline.
+      options: [
+        'pending',
+        'prepress',
+        'printing',
+        'finishing',
+        'quality_check',
+        'ready',
+        'done',
+        'on_hold',
+        'cancelled',
+      ],
+      defaultValue: 'pending',
+      index: true,
+    },
   ],
 }
+

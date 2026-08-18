@@ -6,12 +6,10 @@ import {
   Search, 
   Bell, 
   CheckCircle2, 
-  Cpu,
   Layers,
   FileCode2,
   Settings
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 
 interface TemplateItem {
   id: string;
@@ -161,38 +159,45 @@ export function TemplatesGalleryView() {
       <div className="bg-white border border-secondary-200 p-4 sm:p-6 rounded-2xl shadow-soft space-y-6 relative z-20">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="relative w-full md:max-w-md group">
+            <label htmlFor="template-search" className="sr-only">
+              جستجو در آرشیو قالب‌ها
+            </label>
             <input
-              type="text"
+              id="template-search"
+              type="search"
               placeholder="جستجو در آرشیو قالب‌ها..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-12 pl-4 pr-12 rounded-xl bg-secondary-50 border border-secondary-200 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 text-sm font-bold text-secondary-900 transition-all placeholder:text-secondary-400"
             />
-            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary-400 group-focus-within:text-primary-500" size={20} />
+            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary-400 group-focus-within:text-primary-500 pointer-events-none" size={20} aria-hidden="true" />
           </div>
 
           <button
+            type="button"
             onClick={() => {
               setTemplateRequest("");
               setRequestSent(false);
               setNotifyModal(true);
             }}
-            className="flex items-center gap-2 px-6 py-3 bg-secondary-900 hover:bg-secondary-800 text-white rounded-xl text-sm font-bold transition-all w-full md:w-auto justify-center shadow-md shadow-secondary-900/20"
+            className="flex items-center gap-2 px-6 py-3 min-h-12 bg-secondary-900 hover:bg-secondary-800 text-white rounded-xl text-sm font-bold transition-all w-full md:w-auto justify-center shadow-md shadow-secondary-900/20"
           >
-            <Bell size={18} className="text-primary-400" />
+            <Bell size={18} className="text-primary-400" aria-hidden="true" />
             درخواست قالب جدید 
           </button>
         </div>
 
         {/* Categories */}
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none" role="group" aria-label="فیلتر دسته‌بندی">
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
               <button
                 key={cat}
+                type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border ${
+                aria-pressed={isSelected}
+                className={`px-6 py-2.5 min-h-11 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border ${
                   isSelected 
                     ? "bg-primary-50 text-primary-700 border-primary-500 shadow-sm" 
                     : "bg-white text-secondary-600 border-secondary-200 hover:border-secondary-400 hover:bg-secondary-50"
@@ -232,7 +237,7 @@ export function TemplatesGalleryView() {
               {/* Card Body */}
               <div className="p-6 flex-1 flex flex-col justify-between space-y-6">
                 <div>
-                  <h3 className="text-lg font-black text-secondary-900 mb-3 group-hover:text-primary-600 transition-colors">{template.name}</h3>
+                  <h2 className="text-lg font-black text-secondary-900 mb-3 group-hover:text-primary-600 transition-colors">{template.name}</h2>
                   <div className="flex flex-col gap-2 mb-3">
                     <span className="text-xs text-secondary-600 font-bold flex items-center gap-2 bg-secondary-50 px-2 py-1.5 rounded-md border border-secondary-100">
                       <Settings size={14} className="text-primary-500" />
@@ -274,7 +279,7 @@ export function TemplatesGalleryView() {
           <div className="w-16 h-16 bg-secondary-50 border border-secondary-100 rounded-2xl flex items-center justify-center mx-auto text-secondary-400">
             <FileCode2 size={32} />
           </div>
-          <h3 className="text-lg font-bold text-secondary-900">قالبی در این سیستم یافت نشد</h3>
+          <h2 className="text-lg font-bold text-secondary-900">قالبی در این سیستم یافت نشد</h2>
           <p className="text-secondary-500 text-sm font-medium">
             می‌توانید درخواست ایجاد قالب سفارشی خود را ثبت کنید.
           </p>

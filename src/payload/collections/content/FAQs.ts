@@ -1,14 +1,15 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, publicRead } from '../../access'
 
 export const FAQs: CollectionConfig = {
   slug: 'faqs',
   labels: { singular: 'سوال متداول', plural: 'سوالات متداول' },
   admin: { useAsTitle: 'question' },
   access: {
-    read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    read: publicRead,
+    create: adminOnly,
+    update: adminOnly,
+    delete: adminOnly,
   },
   fields: [
     { name: 'question', type: 'text', required: true, label: 'سوال' },

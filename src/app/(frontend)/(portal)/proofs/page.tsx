@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle, AlertTriangle, XCircle, FileImage, ExternalLink } from "lucide-react";
 import { requireUser, scopeToUser } from "@/lib/auth";
+import { relationId } from "@/lib/relations";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,52 @@ export default async function ProofsPage() {
     where: scopeToUser(user, "customer"),
     limit: 50,
     sort: "-createdAt",
-    depth: 1,
+    depth: 0,
     pagination: false,
+    select: {
+      status: true,
+      version: true,
+      url: true,
+      createdAt: true,
+      orderItem: true,
+    },
   });
+
+  // The card shows the product name, which lives two relationships away
+  // (proof -> orderItem -> productType). `depth: 1` populated `orderItem` but
+  // left `productType` as an ID, so the name never rendered; `depth: 2` would
+  // pull four relationships per item. Two batched queries instead.
+  const orderItemIds = [
+    ...new Set(
+      proofs.docs
+        .map((proof) => relationId(proof.orderItem))
+        .filter((id): id is number => id !== undefined)
+    ),
+  ];
+
+  const orderItems = orderItemIds.length > 0
+    ? await payload.find({
+        collection: "order-items",
+        where: { id: { in: orderItemIds } },
+        limit: orderItemIds.length,
+        depth: 1,
+        pagination: false,
+        select: { productType: true },
+      })
+    : null;
+
+  const productNameByOrderItem = new Map<number, string>(
+    (orderItems?.docs ?? []).flatMap((item) => {
+      const productType = item.productType;
+      if (typeof productType !== "object" || productType === null) return [];
+      return [[item.id, productType.name] as const];
+    })
+  );
+
+  const productNameFor = (orderItem: unknown): string => {
+    const id = relationId(orderItem);
+    return (id !== undefined ? productNameByOrderItem.get(id) : undefined) ?? "محصول چاپی";
+  };
 
   return (
     <div className="space-y-6">
@@ -47,6 +91,10 @@ export default async function ProofsPage() {
 
               <div className="aspect-video bg-slate-50 rounded-2xl mb-4 flex items-center justify-center overflow-hidden border border-slate-100 relative">
                 {proof.url ? (
+                  // Proofs are private files served from the artwork bucket.
+                  // Routing them through the Next image optimizer would cache
+                  // customer artwork in a shared, unauthenticated cache.
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={proof.url} alt="Proof" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                 ) : (
                   <FileImage size={40} className="text-slate-300" />
@@ -66,9 +114,7 @@ export default async function ProofsPage() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-bold text-slate-800">
-                    {typeof proof.orderItem === 'object'
-                      ? (typeof proof.orderItem.productType === 'object' ? proof.orderItem.productType.name : 'محصول چاپی')
-                      : 'محصول چاپی'}
+                    {productNameFor(proof.orderItem)}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     تاریخ: {new Date(proof.createdAt).toLocaleDateString('fa-IR')}

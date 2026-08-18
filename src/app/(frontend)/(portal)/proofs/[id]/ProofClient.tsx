@@ -6,28 +6,66 @@ import { Button } from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
 import { CheckCircle, AlertTriangle, XCircle, FileImage } from "lucide-react";
 
-export function ProofClient({ proof, orderId }: { proof: any, orderId: string }) {
+/**
+ * Lean projection of a proof. The server used to pass the whole document,
+ * which serialized `approvalIp`, `signedAgreementText` and the populated
+ * `orderItem`/`customer` records into the client payload.
+ */
+export type ProofView = {
+  id: number | string;
+  status: string;
+  version: number;
+  url?: string | null;
+  filename?: string | null;
+  customerFeedback?: string | null;
+};
+
+export function ProofClient({ proof, orderId }: { proof: ProofView; orderId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [mode, setMode] = useState<"view" | "reject">("view");
+  const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState("");
 
   const legalText = `اینجانب صحت اطلاعات، املاء، ابعاد و کیفیت فایل آپلودی را بررسی کرده و مسئولیت هرگونه خطای چاپی ناشی از فایل را می‌پذیرم.`;
 
   const handleApprove = async () => {
+    // The agreement text is stored as the customer's signature, so approving
+    // without ticking the box would record consent that was never given.
+    if (!agreed) {
+      setError("برای تأیید، ابتدا متن تعهدنامه را بپذیرید.");
+      return;
+    }
     if (!confirm("آیا از تأیید نهایی این طرح اطمینان دارید؟ پس از تأیید امکان تغییر وجود ندارد.")) return;
+
+    setError("");
     setLoading(true);
-    await approveProof(proof.id, orderId, legalText);
-    setLoading(false);
-    router.refresh();
+    try {
+      await approveProof(String(proof.id), orderId, legalText);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطا در ثبت تأییدیه");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReject = async () => {
-    if (!feedback.trim()) return alert("لطفاً دلیل رد کردن طرح را بنویسید.");
+    if (!feedback.trim()) {
+      setError("لطفاً دلیل رد کردن طرح را بنویسید.");
+      return;
+    }
+    setError("");
     setLoading(true);
-    await rejectProof(proof.id, orderId, feedback);
-    setLoading(false);
-    router.refresh();
+    try {
+      await rejectProof(String(proof.id), orderId, feedback);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطا در ثبت اصلاحیه");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (proof.status === "approved") {
@@ -68,13 +106,15 @@ export function ProofClient({ proof, orderId }: { proof: any, orderId: string })
 
       {/* Preview File */}
       <div className="bg-slate-100 rounded-3xl p-4 md:p-12 flex justify-center items-center min-h-[400px] shadow-inner relative overflow-hidden">
-        {proof.filename ? (
+        {proof.url ? (
           <div className="relative group">
             {/* Guide Lines Mock */}
             <div className="absolute inset-4 border-2 border-dashed border-red-500/50 pointer-events-none z-10" />
             <div className="absolute inset-0 border border-blue-500/50 pointer-events-none z-10" />
             
-            {/* Actual File */}
+            {/* Actual File — private artwork, deliberately not routed through
+                the Next image optimizer (shared, unauthenticated cache). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={proof.url} 
               alt="Proof Preview" 
@@ -95,7 +135,12 @@ export function ProofClient({ proof, orderId }: { proof: any, orderId: string })
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
             <div className="flex-1">
               <label className="flex items-start gap-3 cursor-pointer p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                <input type="checkbox" className="mt-1 w-5 h-5 text-primary-600 rounded border-slate-300 focus:ring-primary-500" />
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-1 w-5 h-5 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
+                />
                 <span className="text-sm text-slate-700 font-medium">
                   {legalText}
                 </span>
@@ -112,7 +157,7 @@ export function ProofClient({ proof, orderId }: { proof: any, orderId: string })
               <Button 
                 className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/30"
                 onClick={handleApprove}
-                disabled={loading}
+                disabled={loading || !agreed}
               >
                 {loading ? "در حال ثبت..." : "تأیید و ارسال به چاپ"}
               </Button>
@@ -140,6 +185,12 @@ export function ProofClient({ proof, orderId }: { proof: any, orderId: string })
               </Button>
             </div>
           </div>
+        )}
+
+        {error && (
+          <p className="mt-4 text-sm font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">
+            {error}
+          </p>
         )}
       </div>
     </div>

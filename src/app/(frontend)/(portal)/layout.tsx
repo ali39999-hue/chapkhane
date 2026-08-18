@@ -63,7 +63,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 md:pr-64 min-w-0">
+      <main id="main-content" className="flex-1 md:pr-64 min-w-0">
         <div className="p-4 md:p-8 max-w-7xl mx-auto page-enter">
           {children}
         </div>

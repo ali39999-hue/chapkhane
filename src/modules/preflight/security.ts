@@ -22,8 +22,9 @@ export async function checkPdfEncryption(buffer: Buffer, mimeType: string): Prom
     // By NOT passing ignoreEncryption: true, pdf-lib will throw if the PDF is encrypted
     await PDFDocument.load(uint8Array, { ignoreEncryption: false });
     return false;
-  } catch (error: any) {
-    if (error.message && error.message.includes('encrypted')) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('encrypted')) {
       return true;
     }
     // If it fails for another reason, we ignore it here (engine will catch it)

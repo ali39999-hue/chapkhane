@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, isStaffRole } from '../access'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -6,21 +7,26 @@ export const Users: CollectionConfig = {
     useAsTitle: 'email',
     defaultColumns: ['email', 'fullName', 'role', 'organization'],
   },
-  auth: true,
+  auth: {
+    // Bounded brute-force protection on the login endpoint, which has no
+    // application-level rate limit of its own.
+    maxLoginAttempts: 8,
+    lockTime: 10 * 60 * 1000,
+  },
   access: {
     // Users may read and edit only themselves; staff can manage everyone.
     read: ({ req: { user } }) => {
       if (!user) return false
-      if (['admin', 'operator'].includes(user.role)) return true
+      if (isStaffRole(user.role)) return true
       return { id: { equals: user.id } }
     },
-    create: ({ req: { user } }) => user?.role === 'admin',
+    create: adminOnly,
     update: ({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'admin') return true
       return { id: { equals: user.id } }
     },
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    delete: adminOnly,
   },
   fields: [
     {
@@ -35,6 +41,7 @@ export const Users: CollectionConfig = {
       ],
       required: true,
       defaultValue: 'customer',
+      index: true,
       // Only admins may change roles; otherwise a customer could self-promote
       // via the REST API using their own update permission.
       access: {

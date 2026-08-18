@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { ShieldCheck, Receipt, CreditCard, ChevronLeft, Loader2, AlertCircle } from "lucide-react";
 
-export function PaymentMockUI({ order }: { order: any }) {
+export type MockPaymentOrder = {
+  id: number | string;
+  orderNumber: string;
+  total: number;
+};
+
+export function PaymentMockUI({ order }: { order: MockPaymentOrder }) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -15,19 +21,17 @@ export function PaymentMockUI({ order }: { order: any }) {
       const res = await fetch('/api/payment/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id, status }),
+        // The outcome is a *request* to the sandbox gateway, not the verdict:
+        // the server resolves the real status through the gateway module.
+        body: JSON.stringify({ orderId: order.id, callback: { status } }),
       });
 
       if (!res.ok) {
         throw new Error('خطا در ارتباط با سرور شاپرک');
       }
 
-      if (status === 'success') {
-        router.push(`/dashboard?payment=success`);
-      } else {
-        router.push(`/dashboard?payment=failed`);
-      }
-    } catch (err) {
+      router.push(status === 'success' ? '/dashboard?payment=success' : '/dashboard?payment=failed');
+    } catch {
       alert('خطا در پردازش تراکنش');
       setIsLoading(false);
     }
@@ -77,7 +81,7 @@ export function PaymentMockUI({ order }: { order: any }) {
               <span className="text-secondary-500 font-bold text-sm">مبلغ قابل پرداخت:</span>
               <div className="text-left" dir="ltr">
                 <span className="text-primary-700 text-3xl font-black">
-                  {new Intl.NumberFormat('fa-IR').format(order.totals.total)}
+                  {new Intl.NumberFormat('fa-IR').format(order.total)}
                 </span>
                 <span className="text-sm font-bold text-secondary-500 ml-1">ریال</span>
               </div>

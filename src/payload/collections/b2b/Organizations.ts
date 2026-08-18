@@ -1,18 +1,16 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, ownerScoped } from '../../access'
 
 export const Organizations: CollectionConfig = {
   slug: 'organizations',
   labels: { singular: 'سازمان (B2B)', plural: 'سازمان‌ها (B2B)' },
   admin: { useAsTitle: 'name' },
   access: {
-    read: ({ req: { user } }) => {
-      if (!user) return false
-      if (['admin', 'operator'].includes(user.role)) return true
-      return { users: { equals: user.id } }
-    },
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    // Members read their own organization; only admins may touch credit terms.
+    read: ownerScoped('users'),
+    create: adminOnly,
+    update: adminOnly,
+    delete: adminOnly,
   },
   fields: [
     { name: 'name', type: 'text', required: true },
@@ -20,7 +18,7 @@ export const Organizations: CollectionConfig = {
     { name: 'creditLimit', type: 'number', defaultValue: 0 },
     { name: 'balance', type: 'number', defaultValue: 0 },
     { name: 'baseDiscount', type: 'number', defaultValue: 0 },
-    { name: 'users', type: 'relationship', relationTo: 'users', hasMany: true },
+    { name: 'users', type: 'relationship', relationTo: 'users', hasMany: true, index: true },
     { name: 'status', type: 'select', options: ['active', 'suspended'], defaultValue: 'active', index: true },
   ],
 }

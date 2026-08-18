@@ -15,14 +15,29 @@ import {
   Cpu,
   Sparkles,
   ArrowUpRight,
-  ShieldCheck,
-  Zap,
-  CheckCircle2
+  ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
 import { formatNumber } from "@/utils/format-number";
 import { DashboardCharts } from "./DashboardCharts";
-import { orderStatusLabel, orderStatusTone } from "@/modules/workflow/labels";
+import { orderStatusLabel } from "@/modules/workflow/labels";
+
+/** Production stages shown in the live workload widget. */
+const PRODUCTION_STAGES = [
+  { status: 'prepress', label: 'لیتوگرافی و فرم‌بندی', tone: 'blue' },
+  { status: 'printing', label: 'سالن چاپ', tone: 'emerald' },
+  { status: 'finishing', label: 'پس از چاپ (صحافی)', tone: 'primary' },
+  { status: 'quality_check', label: 'کنترل کیفیت', tone: 'amber' },
+] as const;
+
+const STAGE_TONES: Record<string, { text: string; bg: string; border: string; bar: string }> = {
+  blue: { text: 'text-blue-400', bg: 'bg-blue-950/50', border: 'border-blue-900/50', bar: 'bg-blue-500' },
+  emerald: { text: 'text-emerald-400', bg: 'bg-emerald-950/50', border: 'border-emerald-900/50', bar: 'bg-emerald-500' },
+  primary: { text: 'text-primary-400', bg: 'bg-primary-950/50', border: 'border-primary-900/50', bar: 'bg-primary-500' },
+  amber: { text: 'text-amber-400', bg: 'bg-amber-950/50', border: 'border-amber-900/50', bar: 'bg-amber-500' },
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default async function CustomDashboard() {
   const payload = await getPayload({ config: configPromise });
@@ -31,12 +46,22 @@ export default async function CustomDashboard() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [todayOrders, totalOrders, allPendingProofs, bottleneckOrders, recentOrders] = await Promise.all([
-    payload.find({
+  // Window for the revenue chart: the last 7 calendar days including today.
+  const chartStart = new Date(today.getTime() - 6 * DAY_MS);
+
+  const [
+    todayOrderCount,
+    totalOrders,
+    allPendingProofs,
+    bottleneckOrders,
+    recentOrders,
+    revenueWindow,
+    deliveredOrders,
+    stageCounts,
+  ] = await Promise.all([
+    payload.count({
       collection: "orders",
-      where: {
-        createdAt: { greater_than_equal: today.toISOString() }
-      }
+      where: { createdAt: { greater_than_equal: today.toISOString() } },
     }),
     payload.count({ collection: "orders" }),
     payload.count({
@@ -45,37 +70,85 @@ export default async function CustomDashboard() {
     }),
     payload.find({
       collection: "orders",
-      where: {
-        or: [
-          { status: { equals: "needs_customer_action" } },
-          { status: { equals: "awaiting_proof" } },
-          { status: { equals: "file_review" } },
-        ]
-      },
+      // A single `in` predicate matches the ['status', 'createdAt'] index.
+      where: { status: { in: ['needs_customer_action', 'awaiting_proof', 'file_review'] } },
       limit: 8,
-      sort: "-createdAt"
+      sort: "-createdAt",
+      depth: 0,
+      pagination: false,
+      select: { orderNumber: true, status: true, createdAt: true, totals: true },
     }),
     payload.find({
       collection: "orders",
       limit: 6,
       sort: "-createdAt",
-      depth: 1
-    })
+      depth: 0,
+      pagination: false,
+      select: { orderNumber: true, status: true, createdAt: true, totals: true },
+    }),
+    // Real revenue for the chart: paid-or-later orders in the window.
+    payload.find({
+      collection: "orders",
+      where: {
+        and: [
+          { createdAt: { greater_than_equal: chartStart.toISOString() } },
+          { status: { not_in: ['draft', 'awaiting_payment', 'cancelled', 'refunded'] } },
+        ],
+      },
+      limit: 1000,
+      depth: 0,
+      pagination: false,
+      select: { createdAt: true, totals: true },
+    }),
+    // Average turnaround, measured from order creation to delivery.
+    payload.find({
+      collection: "orders",
+      where: { status: { in: ['delivered', 'closed'] } },
+      limit: 50,
+      sort: "-updatedAt",
+      depth: 0,
+      pagination: false,
+      select: { createdAt: true, updatedAt: true },
+    }),
+    Promise.all(
+      PRODUCTION_STAGES.map((stage) =>
+        payload.count({ collection: "orders", where: { status: { equals: stage.status } } })
+      )
+    ),
   ]);
 
-  const todayRevenue = todayOrders.docs.reduce((acc, order) => acc + (order.totals?.total || 0), 0);
-  const totalRevenueAllTime = recentOrders.docs.reduce((acc, order) => acc + (order.totals?.total || 0), 0);
+  // 3. Chart data — measured, not fabricated. The previous version filled six of
+  //    the seven days with `Math.random()`, which also made this component
+  //    impure and produced a different chart on every render.
+  const revenueByDay = new Map<string, number>();
+  for (const order of revenueWindow.docs) {
+    const key = new Date(order.createdAt).toISOString().slice(0, 10);
+    revenueByDay.set(key, (revenueByDay.get(key) ?? 0) + (order.totals?.total ?? 0));
+  }
 
-  // 3. Generate Chart Data
+  const todayRevenue = revenueByDay.get(today.toISOString().slice(0, 10)) ?? 0;
+
   const chartData = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const mockRevenue = Math.floor(Math.random() * 45000000) + 15000000;
+    const d = new Date(chartStart.getTime() + i * DAY_MS);
     return {
       date: d.toLocaleDateString('fa-IR', { weekday: 'short', month: 'numeric', day: 'numeric' }),
-      revenue: i === 6 && todayRevenue > 0 ? todayRevenue : mockRevenue, 
+      revenue: revenueByDay.get(d.toISOString().slice(0, 10)) ?? 0,
     };
   });
+
+  const deliveryDurations = deliveredOrders.docs
+    .map((order) => (new Date(order.updatedAt).getTime() - new Date(order.createdAt).getTime()) / DAY_MS)
+    .filter((days) => Number.isFinite(days) && days >= 0);
+
+  const averageDeliveryDays = deliveryDurations.length > 0
+    ? Math.round(deliveryDurations.reduce((a, b) => a + b, 0) / deliveryDurations.length)
+    : null;
+
+  const stages = PRODUCTION_STAGES.map((stage, i) => ({
+    ...stage,
+    count: stageCounts[i].totalDocs,
+  }));
+  const busiestStage = Math.max(1, ...stages.map((s) => s.count));
 
   const currentDateStr = new Date().toLocaleDateString('fa-IR', {
     weekday: 'long',
@@ -197,7 +270,7 @@ export default async function CustomDashboard() {
         <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-slate-800 flex items-center justify-between hover:bg-slate-900 transition-colors group">
           <div>
             <p className="text-slate-400 text-sm font-medium mb-1 group-hover:text-slate-300 transition-colors">سفارشات ثبت‌شده امروز</p>
-            <h3 className="text-2xl font-black text-white">{todayOrders.totalDocs} عدد</h3>
+            <h3 className="text-2xl font-black text-white">{todayOrderCount.totalDocs} عدد</h3>
             <p className="text-xs text-slate-500 mt-2">از مجموع {totalOrders.totalDocs} سفارش کلی</p>
           </div>
           <div className="w-14 h-14 bg-blue-950 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-900/50">
@@ -234,9 +307,13 @@ export default async function CustomDashboard() {
         <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-slate-800 flex items-center justify-between hover:bg-slate-900 transition-colors group">
           <div>
             <p className="text-slate-400 text-sm font-medium mb-1 group-hover:text-slate-300 transition-colors">میانگین زمان تحویل</p>
-            <h3 className="text-2xl font-black text-purple-400">۳ روز کاری</h3>
+            <h3 className="text-2xl font-black text-purple-400">
+              {averageDeliveryDays === null ? '—' : `${averageDeliveryDays.toLocaleString('fa-IR')} روز`}
+            </h3>
             <p className="text-[10px] text-purple-400 bg-purple-950/50 px-2 py-0.5 rounded-md inline-block mt-2 font-bold border border-purple-900/50">
-              استاندارد افست
+              {averageDeliveryDays === null
+                ? 'داده کافی نیست'
+                : `میانگین ${deliveryDurations.length.toLocaleString('fa-IR')} سفارش اخیر`}
             </p>
           </div>
           <div className="w-14 h-14 bg-purple-950 text-purple-400 rounded-2xl flex items-center justify-center border border-purple-900/50">
@@ -245,83 +322,42 @@ export default async function CustomDashboard() {
         </div>
       </div>
 
-      {/* Production Machines Live Status Widget */}
+      {/* Live production workload per stage */}
       <div className="bg-slate-900/50 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-slate-800">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-base font-black text-white flex items-center gap-2">
             <Cpu size={20} className="text-primary-400" />
-            تله‌متری زنده تجهیزات و ماشین‌آلات چاپ
+            بار کاری جاری خطوط تولید
           </h2>
-          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-950/50 px-3 py-1.5 rounded-full border border-emerald-900/50">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            وضعیت: بهینه (Optimal)
-          </span>
+          <Link
+            href="/production"
+            className="flex items-center gap-1.5 text-xs font-bold text-primary-400 hover:text-primary-300 transition-colors"
+          >
+            کارتابل کانبان
+            <ArrowUpRight size={14} />
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center justify-between relative z-10">
-              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <CheckCircle2 size={14} className="text-emerald-500" />
-                هایدلبرگ CD 102
-              </span>
-              <span className="text-[10px] font-black px-2 py-0.5 bg-emerald-950/50 text-emerald-400 rounded-md border border-emerald-900/50">RUNNING</span>
-            </div>
-            <p className="text-xs text-slate-500 relative z-10">فرم کارت ویزیت / ۱۳,۵۰۰ ورق بر ساعت</p>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden relative z-10">
-              <div className="bg-emerald-500 h-full w-3/4 rounded-full relative">
-                <div className="absolute top-0 right-0 w-full h-full bg-white/20 animate-pulse" />
+          {stages.map((stage) => {
+            const tone = STAGE_TONES[stage.tone];
+            const widthPercent = Math.round((stage.count / busiestStage) * 100);
+
+            return (
+              <div key={stage.status} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300">{stage.label}</span>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${tone.bg} ${tone.text} ${tone.border}`}>
+                    {stage.count.toLocaleString('fa-IR')}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">سفارش در این مرحله</p>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div className={`${tone.bar} h-full rounded-full`} style={{ width: `${widthPercent}%` }} />
+                </div>
               </div>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center justify-between relative z-10">
-              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <CheckCircle2 size={14} className="text-blue-500" />
-                کونیکا مینولتا C1085
-              </span>
-              <span className="text-[10px] font-black px-2 py-0.5 bg-blue-950/50 text-blue-400 rounded-md border border-blue-900/50">STANDBY</span>
-            </div>
-            <p className="text-xs text-slate-500 relative z-10">آماده دریافت فایل / دمای فیوزر ۱۹۰°</p>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden relative z-10">
-              <div className="bg-blue-500 h-full w-1/4 rounded-full" />
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-primary-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center justify-between relative z-10">
-              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <CheckCircle2 size={14} className="text-primary-500" />
-                سلفون‌کشی حرارتی
-              </span>
-              <span className="text-[10px] font-black px-2 py-0.5 bg-primary-950/50 text-primary-400 rounded-md border border-primary-900/50">ACTIVE</span>
-            </div>
-            <p className="text-xs text-slate-500 relative z-10">رول سلفون مات مخملی / رول ۸۰٪</p>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden relative z-10">
-              <div className="bg-primary-500 h-full w-4/5 rounded-full relative">
-                <div className="absolute top-0 right-0 w-full h-full bg-white/20 animate-pulse" />
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center justify-between relative z-10">
-              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <Zap size={14} className="text-amber-500" />
-                دایکات بوبست
-              </span>
-              <span className="text-[10px] font-black px-2 py-0.5 bg-amber-950/50 text-amber-400 rounded-md border border-amber-900/50">SETUP</span>
-            </div>
-            <p className="text-xs text-slate-500 relative z-10">تنظیم قالب جعبه / نیاز به اپراتور</p>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden relative z-10">
-              <div className="bg-amber-500 h-full w-1/2 rounded-full" />
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
 

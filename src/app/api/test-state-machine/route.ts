@@ -10,16 +10,17 @@ export async function GET() {
   const payload = await getPayload({ config: configPromise });
 
   try {
-    const orders = await payload.find({ collection: 'orders', limit: 1 });
+    const orders = await payload.find({ collection: 'orders', limit: 1, depth: 0, pagination: false });
     
-    if (orders.totalDocs === 0) {
+    if (orders.docs.length === 0) {
       // Create a dummy order to test
-      const userRes = await payload.find({ collection: 'users', limit: 1 });
+      const userRes = await payload.find({ collection: 'users', limit: 1, depth: 0, pagination: false });
       const user = userRes.docs[0];
       if (!user) return NextResponse.json({ error: 'No user found' });
 
       const newOrder = await payload.create({
         collection: 'orders',
+        depth: 0,
         data: {
           orderNumber: 'TEST-123',
           customer: user.id,
@@ -36,16 +37,19 @@ export async function GET() {
       await payload.update({
         collection: 'orders',
         id: order.id,
+        depth: 0,
         data: {
           status: 'prepress' // Illegal jump from draft/paid/file_review to prepress
         }
       });
       return NextResponse.json({ result: "❌ FAILED: Allowed illegal transition to prepress!" });
-    } catch (e: any) {
-      return NextResponse.json({ result: `✅ PASSED: Blocked illegal transition. Error: ${e.message}` });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ result: `✅ PASSED: Blocked illegal transition. Error: ${message}` });
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    console.error('[Test State Machine Error]:', err);
+    return NextResponse.json({ error: 'Test failed to run.' }, { status: 500 });
   }
 }

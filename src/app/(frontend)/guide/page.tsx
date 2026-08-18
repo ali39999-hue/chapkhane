@@ -23,7 +23,7 @@ const formats = [
 
 export default function GuidePage() {
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-28 font-sans relative overflow-hidden">
+    <main id="main-content" className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-28 font-sans relative overflow-hidden">
       <div className="absolute inset-0 bg-grid-slate opacity-30 pointer-events-none z-0"></div>
 
       <Navbar />

@@ -1,14 +1,15 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, publicRead } from '../../access'
 
 export const TurnaroundOptions: CollectionConfig = {
   slug: 'turnaround-options',
   labels: { singular: 'زمان تحویل', plural: 'زمان‌های تحویل' },
   admin: { useAsTitle: 'name' },
   access: {
-    read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    read: publicRead,
+    create: adminOnly,
+    update: adminOnly,
+    delete: adminOnly,
   },
   fields: [
     { name: 'name', type: 'text', required: true, label: 'عنوان (مثلاً فوری)' },

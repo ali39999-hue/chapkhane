@@ -13,7 +13,6 @@ import {
   ExternalLink, 
   Navigation,
   CheckCircle2,
-  Building2,
   Cpu
 } from "lucide-react";
 
@@ -34,7 +33,7 @@ export default function ContactPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-28 font-sans relative overflow-hidden">
+    <main id="main-content" className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-28 font-sans relative overflow-hidden">
       <div className="absolute inset-0 bg-grid-slate opacity-30 pointer-events-none -z-10" />
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary-100/50 rounded-full blur-[100px] -z-10 pointer-events-none" />
 
@@ -86,7 +85,7 @@ export default function ContactPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MapPin className="text-red-500" size={20} />
-                  <h3 className="font-black text-secondary-900 text-base">موقعیت مکانی چاپخانه و لیتوگرافی</h3>
+                  <h2 className="font-black text-secondary-900 text-base">موقعیت مکانی چاپخانه و لیتوگرافی</h2>
                 </div>
                 <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
                   مراجعه با هماهنگی
@@ -109,30 +108,36 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              {/* Navigation Links */}
+              {/* Navigation Links — external, so `rel` is required and the
+                  new-tab behaviour is announced. */}
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <a 
                   href="https://nshn.ir" 
                   target="_blank"
-                  className="flex-1 py-2.5 px-3 bg-secondary-50 hover:bg-secondary-100 text-secondary-700 font-bold text-xs rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border border-secondary-200"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 px-3 min-h-12 bg-secondary-50 hover:bg-secondary-100 text-secondary-700 font-bold text-xs rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border border-secondary-200"
                 >
-                  <Navigation size={14} className="text-primary-500" />
+                  <Navigation size={14} className="text-primary-500" aria-hidden="true" />
                   مسیریابی با نشان
+                  <span className="sr-only">(در تب جدید باز می‌شود)</span>
                 </a>
                 <a 
                   href="https://balad.ir" 
                   target="_blank"
-                  className="flex-1 py-2.5 px-3 bg-secondary-50 hover:bg-secondary-100 text-secondary-700 font-bold text-xs rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border border-secondary-200"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 px-3 min-h-12 bg-secondary-50 hover:bg-secondary-100 text-secondary-700 font-bold text-xs rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border border-secondary-200"
                 >
-                  <Navigation size={14} className="text-primary-500" />
+                  <Navigation size={14} className="text-primary-500" aria-hidden="true" />
                   مسیریابی با بلد
+                  <span className="sr-only">(در تب جدید باز می‌شود)</span>
                 </a>
                 <a 
                   href="https://maps.google.com" 
                   target="_blank"
-                  className="flex-1 py-2.5 px-3 bg-secondary-50 hover:bg-secondary-100 text-secondary-700 font-bold text-xs rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border border-secondary-200"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 px-3 min-h-12 bg-secondary-50 hover:bg-secondary-100 text-secondary-700 font-bold text-xs rounded-xl transition-all text-center flex items-center justify-center gap-1.5 border border-secondary-200"
                 >
-                  <ExternalLink size={14} className="text-primary-500" />
+                  <ExternalLink size={14} className="text-primary-500" aria-hidden="true" />
                   Google Maps
                 </a>
               </div>
@@ -142,31 +147,35 @@ export default function ContactPage() {
           {/* Left Column: Direct Message Form (5 Cols) */}
           <div className="lg:col-span-5">
             {submitted ? (
-              <div className="bg-white rounded-2xl border border-secondary-200 p-10 shadow-soft text-center space-y-4">
+              <div className="bg-white rounded-2xl border border-secondary-200 p-10 shadow-soft text-center space-y-4" role="status">
                 <div className="w-16 h-16 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full flex items-center justify-center mx-auto">
-                  <CheckCircle2 size={32} />
+                  <CheckCircle2 size={32} aria-hidden="true" />
                 </div>
-                <h3 className="text-xl font-black text-secondary-900">پیام شما با موفقیت ثبت شد!</h3>
+                <h2 className="text-xl font-black text-secondary-900">اطلاعات شما ثبت شد</h2>
                 <p className="text-secondary-600 text-xs sm:text-sm leading-relaxed font-medium">
-                  کارشناسان بخش فنی و لیتوگرافی حداکثر تا ۲ ساعت آینده با شما تماس خواهند گرفت.
+                  برای پیگیری فوری، لطفاً با شماره‌های درج‌شده در همین صفحه تماس بگیرید یا از طریق واتساپ پیام دهید.
                 </p>
                 <button
+                  type="button"
                   onClick={() => setSubmitted(false)}
-                  className="px-6 py-2.5 bg-secondary-100 hover:bg-secondary-200 text-secondary-700 font-bold text-xs rounded-xl transition-all"
+                  className="px-6 py-3 min-h-12 bg-secondary-100 hover:bg-secondary-200 text-secondary-700 font-bold text-xs rounded-xl transition-all"
                 >
-                  ارسال پیام جدید
+                  بازگشت به فرم
                 </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-secondary-200 p-6 sm:p-8 shadow-soft space-y-4">
-                <h3 className="text-lg font-black text-secondary-900 mb-1">ارسال پیام به مدیر تولید</h3>
+                <h2 className="text-lg font-black text-secondary-900 mb-1">ارسال پیام به مدیر تولید</h2>
                 <p className="text-xs text-secondary-500 mb-4 font-medium">فرم زیر را تکمیل کنید تا کارشناسان چاپخانه با شما تماس بگیرند.</p>
 
                 <div>
-                  <label className="block text-xs font-bold text-secondary-600 mb-1.5">نام و نام خانوادگی</label>
+                  <label htmlFor="contact-name" className="block text-xs font-bold text-secondary-600 mb-1.5">نام و نام خانوادگی</label>
                   <input
+                    id="contact-name"
+                    name="name"
                     type="text"
                     required
+                    autoComplete="name"
                     value={formState.name}
                     onChange={(e) => setFormState({ ...formState, name: e.target.value })}
                     placeholder="مثلاً: علیرضا حسینی"
@@ -175,10 +184,15 @@ export default function ContactPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-secondary-600 mb-1.5">شماره همراه</label>
+                  <label htmlFor="contact-phone" className="block text-xs font-bold text-secondary-600 mb-1.5">شماره همراه</label>
                   <input
+                    id="contact-phone"
+                    name="tel"
                     type="tel"
                     required
+                    inputMode="tel"
+                    autoComplete="tel"
+                    pattern="0[0-9]{9,10}"
                     value={formState.phone}
                     onChange={(e) => setFormState({ ...formState, phone: e.target.value })}
                     placeholder="۰۹۱۲۳۴۵۶۷۸۹"
@@ -188,8 +202,10 @@ export default function ContactPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-secondary-600 mb-1.5">موضوع پیام</label>
+                  <label htmlFor="contact-subject" className="block text-xs font-bold text-secondary-600 mb-1.5">موضوع پیام</label>
                   <input
+                    id="contact-subject"
+                    name="subject"
                     type="text"
                     required
                     value={formState.subject}
@@ -200,8 +216,10 @@ export default function ContactPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-secondary-600 mb-1.5">مشخصات سفارش یا پیام</label>
+                  <label htmlFor="contact-message" className="block text-xs font-bold text-secondary-600 mb-1.5">مشخصات سفارش یا پیام</label>
                   <textarea
+                    id="contact-message"
+                    name="message"
                     rows={4}
                     required
                     value={formState.message}
@@ -211,11 +229,20 @@ export default function ContactPage() {
                   />
                 </div>
 
+                {/*
+                  This form is not yet wired to a backend endpoint: submitting
+                  only switches to the confirmation panel. Say so, rather than
+                  implying a message was delivered.
+                */}
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3 font-bold">
+                  توجه: ارسال این فرم فعلاً پیام را ثبت نمی‌کند. برای پیگیری فوری با شماره تلفن بالا تماس بگیرید.
+                </p>
+
                 <button
                   type="submit"
-                  className="w-full h-13 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-xl shadow-md shadow-primary-600/20 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                  className="w-full h-13 min-h-12 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-xl shadow-md shadow-primary-600/20 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2"
                 >
-                  <Send size={16} />
+                  <Send size={16} aria-hidden="true" />
                   <span>ارسال پیام به واحد لیتوگرافی</span>
                 </button>
               </form>

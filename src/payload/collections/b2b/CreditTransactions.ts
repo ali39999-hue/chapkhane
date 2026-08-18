@@ -1,6 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { getPayload } from 'payload'
-import configPromise from '@payload-config'
+import { adminOnly, isStaffRole } from '../../access'
 
 export const CreditTransactions: CollectionConfig = {
   slug: 'credit-transactions',
@@ -8,25 +7,31 @@ export const CreditTransactions: CollectionConfig = {
   access: {
     read: async ({ req: { user, payload } }) => {
       if (!user) return false
-      if (['admin', 'operator'].includes(user.role)) return true
-      // B2B members can only read transactions of their own organization
+      if (isStaffRole(user.role)) return true
+      // B2B members can only read transactions of their own organization.
+      // This costs one query per request, so keep it as lean as possible.
       const org = await payload.find({
         collection: 'organizations',
         where: { users: { equals: user.id }, status: { equals: 'active' } },
         limit: 1,
+        depth: 0,
+        pagination: false,
+        select: {},
       });
-      if (org.totalDocs === 0) return false
+      if (org.docs.length === 0) return false
       return { organization: { equals: org.docs[0].id } }
     },
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    create: adminOnly,
+    update: adminOnly,
+    delete: adminOnly,
   },
   hooks: {
     afterChange: [
-      async ({ doc, operation }) => {
+      async ({ doc, operation, req }) => {
         if (operation !== 'create') return
-        const payload = await getPayload({ config: configPromise });
+        // Use the request-scoped payload instance instead of `getPayload`, so
+        // this participates in the caller's transaction/context.
+        const payload = req.payload;
         const orgId = typeof doc.organization === 'string' ? doc.organization : doc.organization.id;
 
         // Atomic balance mutation. A single guarded UPDATE is immune to the
@@ -60,7 +65,7 @@ export const CreditTransactions: CollectionConfig = {
     ]
   },
   fields: [
-    { name: 'organization', type: 'relationship', relationTo: 'organizations', required: true },
+    { name: 'organization', type: 'relationship', relationTo: 'organizations', required: true, index: true },
     { name: 'amount', type: 'number', required: true },
     { name: 'type', type: 'select', options: ['charge', 'deduct'], required: true },
     { name: 'orderReference', type: 'relationship', relationTo: 'orders' },

@@ -109,7 +109,7 @@ export const preflightWorker = new Worker('preflight-jobs', async (job) => {
     });
 
     return result;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(`[Preflight Worker] Job failed for artwork ${artworkId}:`, err);
     throw err;
   }

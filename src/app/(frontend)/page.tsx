@@ -12,11 +12,10 @@ import {
   MonitorPlay
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-20 font-sans relative overflow-hidden">
+    <main id="main-content" className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-20 font-sans relative overflow-hidden">
       
       {/* Light Tech Grid Background */}
       <div className="absolute inset-0 bg-grid-slate opacity-40 pointer-events-none -z-10" />

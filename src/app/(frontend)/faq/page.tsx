@@ -1,9 +1,12 @@
-"use client";
-
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { useState } from "react";
-import { ChevronDown, HelpCircle, Cpu } from "lucide-react";
+import { ChevronDown, HelpCircle } from "lucide-react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "سوالات متداول",
+  description: "پاسخ رایج‌ترین سوالات درباره سفارش چاپ، فرمت فایل، بلید، زمان تولید، ارسال و پرداخت.",
+};
 
 const faqData = [
   {
@@ -38,24 +41,33 @@ const faqData = [
   },
 ];
 
+/**
+ * Native `<details>` disclosure.
+ *
+ * The whole page used to be a client component so that each answer could hold
+ * its own `useState`. `<details>/<summary>` gives the same behaviour with
+ * built-in keyboard support and correct screen-reader semantics, and lets the
+ * page render as a server component with no JavaScript at all.
+ */
 function AccordionItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div className="border border-secondary-200 rounded-xl bg-white shadow-sm overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-4 p-5 text-right hover:bg-secondary-50 transition-colors">
+    <details className="group border border-secondary-200 rounded-xl bg-white shadow-sm overflow-hidden">
+      <summary className="w-full flex items-center justify-between gap-4 p-5 text-right hover:bg-secondary-50 transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span className="text-base font-bold text-secondary-800">{q}</span>
-        <ChevronDown size={20} className={`text-secondary-400 shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <p className="px-5 pb-5 text-secondary-600 text-sm leading-relaxed font-medium">{a}</p>
-      )}
-    </div>
+        <ChevronDown
+          size={20}
+          className="text-secondary-400 shrink-0 transition-transform duration-300 group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <p className="px-5 pb-5 text-secondary-600 text-sm leading-relaxed font-medium">{a}</p>
+    </details>
   );
 }
 
 export default function FAQPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col justify-between font-sans relative overflow-hidden">
+    <main id="main-content" className="min-h-screen bg-background text-foreground flex flex-col justify-between font-sans relative overflow-hidden">
       <div className="absolute inset-0 bg-grid-slate opacity-30 pointer-events-none -z-10" />
 
       <Navbar />
@@ -63,7 +75,7 @@ export default function FAQPage() {
       <section className="pt-32 pb-8 px-4">
         <div className="container mx-auto max-w-4xl text-center">
           <div className="inline-flex items-center gap-2 bg-primary-50 border border-primary-100 text-primary-700 font-bold text-xs sm:text-sm px-5 py-2 rounded-full shadow-sm mb-6">
-            <HelpCircle size={16} className="text-primary-500" />
+            <HelpCircle size={16} className="text-primary-500" aria-hidden="true" />
             پاسخ به پرسش‌های متداول
           </div>
           <h1 className="text-3xl md:text-5xl font-black text-secondary-900 mb-6 tracking-tight">
@@ -78,14 +90,14 @@ export default function FAQPage() {
       <section className="py-8 px-4 pb-20 flex-1">
         <div className="container mx-auto max-w-3xl space-y-10">
           {faqData.map((section, i) => (
-            <div key={i}>
+            <div key={section.category}>
               <h2 className="text-xl font-black text-secondary-900 mb-4 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 text-primary-600 flex items-center justify-center text-sm font-black">{i + 1}</span>
+                <span className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 text-primary-600 flex items-center justify-center text-sm font-black" aria-hidden="true">{i + 1}</span>
                 {section.category}
               </h2>
               <div className="space-y-3">
-                {section.items.map((item, j) => (
-                  <AccordionItem key={j} q={item.q} a={item.a} />
+                {section.items.map((item) => (
+                  <AccordionItem key={item.q} q={item.q} a={item.a} />
                 ))}
               </div>
             </div>

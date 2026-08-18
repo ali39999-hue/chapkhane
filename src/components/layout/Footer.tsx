@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin, Sparkles, ShieldCheck, Truck, Clock, Cpu, Award } from "lucide-react";
+import { Phone, MapPin, Truck, Clock, Cpu, Award } from "lucide-react";
 
 const footerLinks = {
   "خدمات چاپ صنعتی": [
@@ -103,11 +103,18 @@ export function Footer() {
           {/* Links Columns */}
           {Object.entries(footerLinks).map(([title, links]) => (
             <div key={title} className="space-y-5">
-              <h4 className="text-white font-bold text-sm uppercase tracking-widest border-r-2 border-primary-500 pr-3">{title}</h4>
-              <ul className="space-y-3 text-sm">
+              {/* h2: the footer sits after the page content, and these were h4
+                  with no h3 above them, which skipped two heading ranks. */}
+              <h2 className="text-white font-bold text-sm uppercase tracking-widest border-r-2 border-primary-500 pr-3">{title}</h2>
+              <ul className="space-y-2 text-sm">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="text-secondary-400 hover:text-white transition-colors inline-block">
+                    {/* py-2 lifts the hit area to ~40px; these were 20px tall,
+                        below the 24px WCAG 2.2 target-size minimum. */}
+                    <Link
+                      href={link.href}
+                      className="text-secondary-400 hover:text-white transition-colors inline-block py-2 leading-snug"
+                    >
                       {link.label}
                     </Link>
                   </li>
@@ -120,9 +127,9 @@ export function Footer() {
         {/* Bottom Copyright */}
         <div className="border-t border-secondary-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-secondary-500 font-medium">
           <p>© ۱۴۰۵ نگار سیستم. زیرساخت ابری چاپ صنعتی.</p>
-          <div className="flex items-center gap-6">
-            <Link href="/guide" className="hover:text-white transition-colors">مستندات فایل</Link>
-            <Link href="/track" className="hover:text-white transition-colors">مانیتورینگ سفارش</Link>
+          <div className="flex items-center gap-4">
+            <Link href="/guide" className="hover:text-white transition-colors py-2 px-1">مستندات فایل</Link>
+            <Link href="/track" className="hover:text-white transition-colors py-2 px-1">مانیتورینگ سفارش</Link>
           </div>
         </div>
       </div>

@@ -5,8 +5,23 @@ import { updateOrderStatus } from "./actions";
 import { Printer, CheckCircle, Package, GripVertical, AlertTriangle, Layers, FileImage, ExternalLink, Printer as PrinterIcon } from "lucide-react";
 import { formatNumber } from "@/utils/format-number";
 
+/**
+ * Lean projection of an order for the Kanban board. The server builds this from
+ * a `select`ed query so no pricing snapshots or customer records reach the
+ * browser.
+ */
+export type KanbanOrder = {
+  id: number | string;
+  orderNumber: string;
+  status: string;
+  createdAt: string;
+  customerName: string;
+  itemCount: number;
+  total: number;
+};
+
 interface KanbanClientProps {
-  initialOrders: any[];
+  initialOrders: KanbanOrder[];
 }
 
 export const COLUMNS = [
@@ -62,7 +77,7 @@ export function KanbanClient({ initialOrders }: KanbanClientProps) {
     if (currentStatus === targetStatus || !orderId) return;
 
     // Optimistic UI update
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: targetStatus } : o));
+    setOrders(prev => prev.map(o => String(o.id) === orderId ? { ...o, status: targetStatus } : o));
     setLoadingId(orderId);
 
     const res = await updateOrderStatus(orderId, targetStatus);
@@ -70,7 +85,7 @@ export function KanbanClient({ initialOrders }: KanbanClientProps) {
     if (!res.success) {
       alert(res.error);
       // Revert
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: currentStatus } : o));
+      setOrders(prev => prev.map(o => String(o.id) === orderId ? { ...o, status: currentStatus } : o));
     }
     
     setLoadingId(null);
@@ -104,16 +119,17 @@ export function KanbanClient({ initialOrders }: KanbanClientProps) {
             {/* Drop Zone / Cards List */}
             <div className="p-3 sm:p-4 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
               {columnOrders.map(order => {
-                const isDragging = draggedOrderId === order.id;
+                const orderId = String(order.id);
+                const isDragging = draggedOrderId === orderId;
                 
                 return (
                   <div 
                     key={order.id} 
                     draggable 
-                    onDragStart={(e) => handleDragStart(e, order.id, order.status)}
+                    onDragStart={(e) => handleDragStart(e, orderId, order.status)}
                     onDragEnd={handleDragEnd}
                     className={`bg-white rounded-xl shadow-sm border border-secondary-200 overflow-hidden cursor-grab active:cursor-grabbing hover:shadow-md hover:border-primary-300 transition-all ${
-                      loadingId === order.id ? 'opacity-50 pointer-events-none animate-pulse' : ''
+                      loadingId === orderId ? 'opacity-50 pointer-events-none animate-pulse' : ''
                     } ${
                       isDragging ? 'opacity-30 scale-95 border-dashed border-primary-500' : 'opacity-100'
                     }`}
@@ -141,7 +157,7 @@ export function KanbanClient({ initialOrders }: KanbanClientProps) {
                         <div>
                           <p className="text-[11px] text-secondary-500 font-bold mb-0.5">نام مشتری / همکار</p>
                           <p className="font-black text-secondary-900 text-sm truncate max-w-[200px]">
-                            {typeof order.customer === 'object' ? (order.customer.fullName || order.customer.email || '—') : order.customer}
+                            {order.customerName}
                           </p>
                         </div>
                         <div className="text-left">
@@ -160,7 +176,7 @@ export function KanbanClient({ initialOrders }: KanbanClientProps) {
                             تعداد اقلام چاپی:
                           </span>
                           <span className="font-black text-secondary-900 bg-white px-2 py-0.5 rounded shadow-sm border border-secondary-200">
-                            {order.items?.length || 0} مورد
+                            {order.itemCount} مورد
                           </span>
                         </div>
                       </div>
@@ -169,7 +185,7 @@ export function KanbanClient({ initialOrders }: KanbanClientProps) {
                     {/* Ticket Footer */}
                     <div className="bg-secondary-50/50 px-4 py-3 border-t border-secondary-100 flex justify-between items-center">
                       <span className="font-black text-primary-700 text-sm" dir="ltr">
-                        {formatNumber(order.totals?.total || 0)} <span className="text-[10px] text-secondary-500 font-bold font-sans">ریال</span>
+                        {formatNumber(order.total)} <span className="text-[10px] text-secondary-500 font-bold font-sans">ریال</span>
                       </span>
                       <a
                         href={`/invoices/${order.id}/print`}

@@ -1,33 +1,57 @@
-import { getPayload } from "payload";
-import configPromise from "@payload-config";
-import { KanbanClient } from "./KanbanClient";
+import { KanbanClient, type KanbanOrder } from "./KanbanClient";
 import Link from "next/link";
 import { ArrowRight, LogOut, Settings2, Cpu } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
+import { relationId } from "@/lib/relations";
 
 export const dynamic = "force-dynamic";
+
+const BOARD_STATUSES = ["prepress", "printing", "finishing", "quality_check", "ready"] as const;
 
 export default async function ProductionBoardPage() {
   const { payload } = await requireStaff();
 
   const orders = await payload.find({
     collection: "orders",
-    where: {
-      or: [
-        { status: { equals: "prepress" } },
-        { status: { equals: "printing" } },
-        { status: { equals: "finishing" } },
-        { status: { equals: "quality_check" } },
-        { status: { equals: "ready" } },
-      ]
-    },
+    // A single `in` predicate instead of five `or`-ed equals, which matches the
+    // existing ['status', 'createdAt'] index.
+    where: { status: { in: BOARD_STATUSES } },
+    // The board only renders the customer's display name, the item count and
+    // the total. `depth: 1` + no `select` shipped every order's priceSnapshot,
+    // shippingAddress and fully-populated order-items to the browser.
     depth: 1,
     limit: 100, // Fetch up to 100 active production orders
     sort: "createdAt",
+    select: {
+      orderNumber: true,
+      status: true,
+      createdAt: true,
+      customer: true,
+      items: true,
+      totals: true,
+    },
+  });
+
+  const boardOrders: KanbanOrder[] = orders.docs.map((order) => {
+    const customer = order.customer;
+    const customerName =
+      typeof customer === "object" && customer !== null
+        ? customer.fullName || customer.email || "—"
+        : String(relationId(customer) ?? "—");
+
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      createdAt: order.createdAt,
+      customerName,
+      itemCount: order.items?.length ?? 0,
+      total: order.totals?.total ?? 0,
+    };
   });
 
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col font-sans relative overflow-hidden" dir="rtl">
+    <main id="main-content" className="min-h-screen bg-slate-50 flex flex-col font-sans relative overflow-hidden" dir="rtl">
       {/* Background Decor */}
       <div className="absolute inset-0 bg-grid-slate opacity-30 pointer-events-none -z-10" />
 
@@ -68,7 +92,7 @@ export default async function ProductionBoardPage() {
 
       {/* Main Kanban Area */}
       <div className="flex-1 p-6 overflow-hidden">
-        <KanbanClient initialOrders={orders.docs} />
+        <KanbanClient initialOrders={boardOrders} />
       </div>
     </main>
   );

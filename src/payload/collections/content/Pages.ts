@@ -1,14 +1,15 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, publicRead } from '../../access'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
   labels: { singular: 'صفحه', plural: 'صفحات' },
   admin: { useAsTitle: 'title' },
   access: {
-    read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    read: publicRead,
+    create: adminOnly,
+    update: adminOnly,
+    delete: adminOnly,
   },
   fields: [
     { name: 'title', type: 'text', required: true },

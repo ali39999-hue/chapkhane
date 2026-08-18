@@ -3,23 +3,22 @@
 import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Search, ChevronLeft, Package, Sparkles, Layers, Zap } from "lucide-react";
+import { Search, ChevronLeft, Package, Layers, Zap } from "lucide-react";
 
-type ProductType = {
+export type CatalogProduct = {
   id: string | number;
   name: string;
   slug: string;
-  printMethod?: any;
-  images?: any[] | null;
+  imageUrl?: string | null;
 };
 
-export function ProductsCatalogView({ initialProducts }: { initialProducts: ProductType[] }) {
+export function ProductsCatalogView({ initialProducts }: { initialProducts: CatalogProduct[] }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredProducts = useMemo(() => {
-    const q = searchQuery.trim();
+    const q = searchQuery.trim().toLowerCase();
     if (!q) return initialProducts;
-    return initialProducts.filter((product) => product.name.toLowerCase().includes(q.toLowerCase()));
+    return initialProducts.filter((product) => product.name.toLowerCase().includes(q));
   }, [searchQuery, initialProducts]);
 
   return (
@@ -43,22 +42,30 @@ export function ProductsCatalogView({ initialProducts }: { initialProducts: Prod
       {/* Search Bar */}
       <div className="bg-white border border-secondary-200 p-4 sm:p-6 rounded-2xl shadow-soft relative z-20">
         <div className="relative w-full max-w-md group">
+          <label htmlFor="product-search" className="sr-only">
+            جستجو در محصولات
+          </label>
           <input
-            type="text"
+            id="product-search"
+            type="search"
             placeholder="جستجو در محصولات (مثلا: کارت ویزیت...)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-12 pl-4 pr-12 rounded-xl bg-secondary-50 border border-secondary-200 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 text-sm font-bold text-secondary-900 transition-all placeholder:text-secondary-400"
           />
-          <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary-400 group-focus-within:text-primary-500 transition-colors" size={20} />
+          <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary-400 group-focus-within:text-primary-500 transition-colors pointer-events-none" size={20} aria-hidden="true" />
         </div>
+        {/* Announces result count to screen readers as the query changes. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {filteredProducts.length} محصول یافت شد
+        </p>
       </div>
 
       {/* Grid of Products */}
       {filteredProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map((product) => {
-            const imageUrl = product.images?.[0]?.url;
+            const imageUrl = product.imageUrl;
 
             return (
               <Link
@@ -95,19 +102,24 @@ export function ProductsCatalogView({ initialProducts }: { initialProducts: Prod
                     <span className="text-[10px] font-black text-primary-600 mb-2 block uppercase tracking-widest bg-primary-50 inline-block px-2 py-0.5 rounded border border-primary-100">
                       چاپ صنعتی
                     </span>
-                    <h3 className="text-lg font-black text-secondary-900 group-hover:text-primary-700 transition-colors line-clamp-1">
+                    {/* h2, not h3: the page heading is the h1 and there is no
+                        intermediate level, so h3 skipped a rank. */}
+                    <h2
+                      className="text-lg font-black text-secondary-900 group-hover:text-primary-700 transition-colors line-clamp-2 min-h-[3.5rem]"
+                      title={product.name}
+                    >
                       {product.name}
-                    </h3>
+                    </h2>
                   </div>
 
                   <div className="mt-6 flex items-center justify-between border-t border-secondary-100 pt-4">
                     <div className="text-secondary-500 text-xs font-bold flex items-center gap-1.5">
-                      <Layers size={14} />
+                      <Layers size={14} aria-hidden="true" />
                       شخصی‌سازی فایل
                     </div>
                     
                     <div className="w-8 h-8 rounded-full bg-secondary-50 text-secondary-400 group-hover:bg-primary-600 group-hover:text-white flex items-center justify-center transition-colors">
-                      <ChevronLeft size={16} />
+                      <ChevronLeft size={16} aria-hidden="true" />
                     </div>
                   </div>
                 </div>
@@ -118,9 +130,9 @@ export function ProductsCatalogView({ initialProducts }: { initialProducts: Prod
       ) : (
         <div className="bg-white rounded-2xl border border-secondary-200 p-16 text-center shadow-sm flex flex-col items-center">
           <div className="w-20 h-20 bg-secondary-50 border border-secondary-100 rounded-2xl flex items-center justify-center text-secondary-300 mb-6">
-            <Package size={32} />
+            <Package size={32} aria-hidden="true" />
           </div>
-          <h3 className="text-lg font-bold text-secondary-900 mb-2">محصولی یافت نشد</h3>
+          <h2 className="text-lg font-bold text-secondary-900 mb-2">محصولی یافت نشد</h2>
           <p className="text-secondary-500 text-sm font-medium">لطفا عبارت دیگری را جستجو کنید.</p>
         </div>
       )}

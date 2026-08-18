@@ -1,14 +1,15 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, publicRead } from '../../access'
 
 export const PreflightRules: CollectionConfig = {
   slug: 'preflight-rules',
   labels: { singular: 'قانون پیش‌ازچاپ (Preflight)', plural: 'قوانین پیش‌ازچاپ' },
   admin: { useAsTitle: 'name', group: 'کاتالوگ' },
   access: {
-    read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    read: publicRead,
+    create: adminOnly,
+    update: adminOnly,
+    delete: adminOnly,
   },
   fields: [
     { name: 'name', type: 'text', required: true, label: 'نام قانون (مثال: کارت ویزیت استاندارد)' },
@@ -17,6 +18,7 @@ export const PreflightRules: CollectionConfig = {
       type: 'relationship', 
       relationTo: 'product-types',
       required: true,
+      index: true,
       label: 'مربوط به محصول'
     },
     {

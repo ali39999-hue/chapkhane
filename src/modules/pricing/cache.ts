@@ -34,9 +34,15 @@ export async function getCachedActivePriceList(
     collection: 'price-lists',
     where: { status: { equals: 'active' } },
     limit: 1,
+    // Every caller immediately reduces the row relationships back to bare IDs,
+    // so populating them (default depth 2, three relationships per row) is
+    // wasted work on the whole tariff table.
+    depth: 0,
+    pagination: false,
+    select: { version: true, status: true, validFrom: true, rows: true },
   })
 
-  cached = res.totalDocs > 0 ? { doc: res.docs[0] as unknown as PriceListDoc, expiresAt: now + ttlMs } : null
+  cached = res.docs.length > 0 ? { doc: res.docs[0] as unknown as PriceListDoc, expiresAt: now + ttlMs } : null
   return cached?.doc ?? null
 }
 

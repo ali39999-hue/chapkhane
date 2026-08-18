@@ -3,12 +3,39 @@ import { Footer } from "@/components/layout/Footer";
 import { getPayload } from "payload";
 import configPromise from "@payload-config";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import type { ProductType } from "../../../../../payload-types";
 import { Configurator } from "@/components/products/Configurator";
+import { relationId } from "@/lib/relations";
 import { Cpu } from "lucide-react";
 
 export const revalidate = 300;
+
+/**
+ * `generateMetadata` and the page component both need the product.
+ * `React.cache` deduplicates them into a single query per render, the same
+ * pattern `src/lib/auth.ts` uses for `payload.auth`.
+ */
+const getProductBySlug = cache(async (slug: string): Promise<ProductType | null> => {
+  try {
+    const payload = await getPayload({ config: configPromise });
+    const res = await payload.find({
+      collection: "product-types",
+      where: { slug: { equals: slug } },
+      limit: 1,
+      // depth 0: the allowed-* relations are only needed as IDs, and they are
+      // used below to fetch exactly the referenced catalog rows.
+      depth: 1,
+      pagination: false,
+    });
+    return res.docs[0] ?? null;
+  } catch (err) {
+    console.warn("Error fetching product", err);
+    return null;
+  }
+});
 
 export async function generateStaticParams() {
   try {
@@ -16,6 +43,8 @@ export async function generateStaticParams() {
     const res = await payload.find({
       collection: "product-types",
       limit: 100,
+      depth: 0,
+      pagination: false,
       select: { slug: true },
     });
     return res.docs.map((d) => ({ slug: d.slug }));
@@ -27,19 +56,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const payload = await getPayload({ config: configPromise });
-  
-  let product = null;
-  try {
-    const res = await payload.find({
-      collection: "product-types",
-      where: { slug: { equals: slug } },
-      limit: 1,
-    });
-    product = res.docs[0];
-  } catch (err) {
-    console.warn("Error fetching product", err);
-  }
+  const product = await getProductBySlug(slug);
 
   if (!product) return { title: "یافت نشد" };
 
@@ -59,65 +76,92 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+/** Relationship arrays arrive as IDs or populated docs; normalise to IDs. */
+function toIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => relationId(entry)).filter((id): id is number => id !== undefined);
+}
+
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const payload = await getPayload({ config: configPromise });
-  
-  let productRes = { totalDocs: 0, docs: [] as any[] };
-  let papersRes = { docs: [] as any[] };
-  let sizesRes = { docs: [] as any[] };
-  let finishingsRes = { docs: [] as any[] };
-  let turnaroundsRes = { docs: [] as any[] };
+  const product = await getProductBySlug(slug);
 
-  try {
-    productRes = await payload.find({
-      collection: "product-types",
-      where: { slug: { equals: slug } },
-      limit: 1,
-    });
-
-    if (productRes.totalDocs > 0) {
-      const results = await Promise.all([
-        payload.find({ collection: "paper-types", limit: 50, where: { active: { equals: true } } }),
-        payload.find({ collection: "print-sizes", limit: 50 }),
-        payload.find({ collection: "finishing-options", limit: 50, where: { active: { equals: true } } }),
-        payload.find({ collection: "turnaround-options", limit: 10 }),
-      ]);
-      papersRes = results[0];
-      sizesRes = results[1];
-      finishingsRes = results[2];
-      turnaroundsRes = results[3];
-    }
-  } catch (err) {
-    console.warn("Error fetching product data", err);
-  }
-
-  if (productRes.totalDocs === 0) {
+  if (!product) {
     notFound();
   }
 
-  const product = productRes.docs[0];
+  const payload = await getPayload({ config: configPromise });
 
-  const allowedPaperIds = product.allowedPapers?.map((p: any) => typeof p === 'object' && p !== null ? p.id : p) || [];
-  const papers = allowedPaperIds.length > 0 
-    ? papersRes.docs.filter(p => allowedPaperIds.includes(p.id)) 
-    : papersRes.docs;
+  const paperIds = toIds(product.allowedPapers);
+  const sizeIds = toIds(product.allowedSizes);
+  const finishingIds = toIds(product.allowedFinishings);
 
-  const allowedSizeIds = product.allowedSizes?.map((s: any) => typeof s === 'object' && s !== null ? s.id : s) || [];
-  const sizes = allowedSizeIds.length > 0 
-    ? sizesRes.docs.filter(s => allowedSizeIds.includes(s.id)) 
-    : sizesRes.docs;
+  // Fetch only the catalog rows this product actually allows. The previous
+  // version read the entire papers/sizes/finishings tables and filtered them in
+  // JavaScript, which also made the in-memory dedupe necessary.
+  const [papersRes, sizesRes, finishingsRes, turnaroundsRes] = await Promise.all([
+    paperIds.length > 0
+      ? payload.find({
+          collection: "paper-types",
+          where: { id: { in: paperIds }, active: { equals: true } },
+          limit: paperIds.length,
+          depth: 0,
+          pagination: false,
+          select: { name: true, allowedGrammages: true },
+        })
+      : payload.find({
+          collection: "paper-types",
+          where: { active: { equals: true } },
+          limit: 50,
+          depth: 0,
+          pagination: false,
+          select: { name: true, allowedGrammages: true },
+        }),
+    sizeIds.length > 0
+      ? payload.find({
+          collection: "print-sizes",
+          where: { id: { in: sizeIds } },
+          limit: sizeIds.length,
+          depth: 0,
+          pagination: false,
+          select: { name: true, finalWidth: true, finalHeight: true },
+        })
+      : payload.find({
+          collection: "print-sizes",
+          limit: 50,
+          depth: 0,
+          pagination: false,
+          select: { name: true, finalWidth: true, finalHeight: true },
+        }),
+    finishingIds.length > 0
+      ? payload.find({
+          collection: "finishing-options",
+          where: { id: { in: finishingIds }, active: { equals: true } },
+          limit: finishingIds.length,
+          depth: 0,
+          pagination: false,
+          select: { name: true },
+        })
+      : Promise.resolve(null),
+    payload.find({
+      collection: "turnaround-options",
+      limit: 10,
+      depth: 0,
+      pagination: false,
+      select: { name: true },
+    }),
+  ]).catch((err) => {
+    console.warn("Error fetching catalog data", err);
+    return [null, null, null, null] as const;
+  });
 
-  const allowedFinishingIds = product.allowedFinishings?.map((f: any) => typeof f === 'object' && f !== null ? f.id : f) || [];
-  let finishings = allowedFinishingIds.length > 0
-    ? finishingsRes.docs.filter(f => allowedFinishingIds.includes(f.id))
-    : finishingsRes.docs;
-
-  // Fix Duplicate Rendering by ensuring unique finishings by ID
-  finishings = Array.from(new Map(finishings.map(f => [f.id, f])).values());
+  const productImageUrl =
+    (Array.isArray(product.images)
+      ? product.images.find((img) => typeof img === "object" && img !== null)
+      : null)?.url ?? null;
 
   return (
-    <main className="min-h-screen bg-background text-foreground pt-28 pb-20 relative overflow-hidden font-sans">
+    <main id="main-content" className="min-h-screen bg-background text-foreground pt-28 pb-20 relative overflow-hidden font-sans">
       {/* Background Decor */}
       <div className="absolute inset-0 bg-grid-slate opacity-30 pointer-events-none -z-10" />
       <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-primary-100/50 rounded-full blur-[100px] -z-10 pointer-events-none" />
@@ -140,11 +184,24 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
         <Suspense fallback={<div className="h-[500px] w-full bg-white border border-secondary-200 shadow-sm animate-pulse rounded-[2rem]" />}>
           <Configurator 
-            product={product}
-            papers={papers}
-            sizes={sizes}
-            finishings={finishings}
-            turnarounds={turnaroundsRes.docs}
+            product={{
+              slug: product.slug,
+              name: product.name,
+              imageUrl: productImageUrl,
+            }}
+            papers={(papersRes?.docs ?? []).map((p) => ({
+              id: p.id,
+              name: p.name,
+              allowedGrammages: (p.allowedGrammages ?? []).map((g) => ({ grammage: g.grammage })),
+            }))}
+            sizes={(sizesRes?.docs ?? []).map((s) => ({
+              id: s.id,
+              name: s.name,
+              finalWidth: s.finalWidth,
+              finalHeight: s.finalHeight,
+            }))}
+            finishings={(finishingsRes?.docs ?? []).map((f) => ({ id: f.id, name: f.name }))}
+            turnarounds={(turnaroundsRes?.docs ?? []).map((t) => ({ id: t.id, name: t.name }))}
           />
         </Suspense>
       </div>

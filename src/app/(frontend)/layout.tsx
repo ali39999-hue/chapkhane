@@ -50,6 +50,14 @@ export default function RootLayout({
   return (
     <html lang="fa" dir="rtl">
       <body className={`${vazirmatn.variable} font-sans antialiased`}>
+        {/*
+          First focusable element on every page, so keyboard users can bypass
+          the fixed navbar instead of tabbing through it on every navigation.
+          Visually hidden until focused (see `.skip-link` in globals.css).
+        */}
+        <a href="#main-content" className="skip-link">
+          رفتن به محتوای اصلی
+        </a>
         {children}
       </body>
     </html>

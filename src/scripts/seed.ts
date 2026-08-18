@@ -73,7 +73,7 @@ async function run() {
     },
   })
 
-  const banner = await payload.create({
+  await payload.create({
     collection: 'product-types',
     data: {
       name: 'چاپ بنر',

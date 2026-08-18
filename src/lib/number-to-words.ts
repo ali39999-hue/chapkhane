@@ -10,7 +10,7 @@ const sadgan = ['', 'صد', 'دویست', 'سیصد', 'چهارصد', 'پانص�
 const bases = ['', 'هزار', 'میلیون', 'میلیارد', 'تریلیون'];
 
 function getGroupWords(num: number): string {
-  let words = [];
+  const words: string[] = [];
   const h = Math.floor(num / 100);
   const t = Math.floor((num % 100) / 10);
   const u = num % 10;
@@ -35,7 +35,7 @@ export function numberToPersianWords(num: number | string): string {
 
   let n = parseInt(str, 10);
   let baseIndex = 0;
-  let finalWords = [];
+  const finalWords: string[] = [];
 
   while (n > 0) {
     const group = n % 1000;

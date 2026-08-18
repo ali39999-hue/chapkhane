@@ -1,5 +1,19 @@
 import { PricingInput, PricingResult, PriceList, PricingContext, sameId } from './types'
 
+/**
+ * A pricing failure caused by the requested configuration rather than by a bug.
+ *
+ * These messages are written for the customer and are safe to display. The
+ * quote endpoint maps them to 422 instead of 500, so an unpriceable — but
+ * otherwise valid — combination is not reported as a server fault.
+ */
+export class PricingError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PricingError'
+  }
+}
+
 function roundTo10000(amount: number): number {
   return Math.ceil(amount / 10000) * 10000
 }
@@ -22,12 +36,12 @@ export function calculatePrice(
 
   // 1. Validation and Setup
   if (!context.productConfig.allowDoubleSided && input.sides === 2) {
-    throw new Error('محصول انتخاب شده قابلیت چاپ دورو ندارد.')
+    throw new PricingError('محصول انتخاب شده قابلیت چاپ دورو ندارد.')
   }
 
   const minQ = context.productConfig.minQuantity || 1
   if (input.quantity < minQ) {
-    throw new Error(`حداقل تیراژ مجاز ${minQ} عدد است.`)
+    throw new PricingError(`حداقل تیراژ مجاز ${minQ} عدد است.`)
   }
 
   // Find base price row
@@ -41,7 +55,7 @@ export function calculatePrice(
   )
 
   if (!baseRow) {
-    throw new Error('قیمت پایه برای این ترکیب کاغذ، گراماژ و وجه یافت نشد.')
+    throw new PricingError('قیمت پایه برای این ترکیب کاغذ، گراماژ و وجه یافت نشد.')
   }
 
   let rawSubtotal = 0
@@ -67,7 +81,7 @@ export function calculatePrice(
   } else if (model === 'area') {
     // Large format logic
     if (!input.size.width || !input.size.height) {
-      throw new Error('برای چاپ عریض، ابعاد سفارشی (عرض و ارتفاع) الزامی است.')
+      throw new PricingError('برای چاپ عریض، ابعاد سفارشی (عرض و ارتفاع) الزامی است.')
     }
     const widthM = input.size.width / 1000
     const heightM = input.size.height / 1000
@@ -83,7 +97,7 @@ export function calculatePrice(
     rawSubtotal += baseCost
     result.breakdown.push({ label: 'چاپ پایه (متراژ)', amount: Math.round(baseCost) })
   } else if (model === 'rfq') {
-    throw new Error('این محصول نیازمند استعلام قیمت دستی است.')
+    throw new PricingError('این محصول نیازمند استعلام قیمت دستی است.')
   }
 
   // 3. Finishing Options

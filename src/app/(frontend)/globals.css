@@ -64,6 +64,68 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /*
+   * Keyboard focus ring.
+   *
+   * Many interactive elements set `outline-none` (or Tailwind's `outline-none`)
+   * to remove the default ring and never replace it, so keyboard users had no
+   * visible focus indicator on the navbar links, footer links and several
+   * buttons. `:focus-visible` only shows for keyboard/AT navigation, so mouse
+   * users see no change.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-primary-600);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+
+  /* On dark surfaces the blue ring has too little contrast. */
+  .bg-secondary-950 :focus-visible,
+  .bg-secondary-900 :focus-visible,
+  .bg-slate-950 :focus-visible,
+  .bg-slate-900 :focus-visible {
+    outline-color: var(--color-accent-400);
+  }
+}
+
+@layer utilities {
+  /* Visually hidden but available to screen readers. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /*
+   * Skip link: the first focusable element on the page, letting keyboard users
+   * bypass the navbar. Hidden until focused.
+   */
+  .skip-link {
+    position: fixed;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 100;
+    transform: translateY(-200%);
+    background-color: var(--color-primary-600);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+    transition: transform 0.15s ease-out;
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
 }
 
 /* Base custom classes for UI */
@@ -102,6 +164,22 @@
 
   .page-enter {
     animation: page-enter 0.5s ease both;
+  }
+}
+
+/*
+ * Respect the OS "reduce motion" setting. The page-enter animation and the
+ * various `animate-pulse` / `animate-spin` indicators otherwise run
+ * unconditionally, which is a vestibular-trigger risk.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

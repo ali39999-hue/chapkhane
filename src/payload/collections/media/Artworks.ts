@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, authenticated, ownerScoped, staffOnlyField } from '../../access'
 // Preflight runs natively inside the upload route (see src/app/api/upload-artwork).
 
 export const Artworks: CollectionConfig = {
@@ -11,25 +12,35 @@ export const Artworks: CollectionConfig = {
   },
   access: {
     // Only owner, admin, or operator can read
-    read: ({ req: { user } }) => {
-      if (!user) return false
-      if (['admin', 'operator'].includes(user.role)) return true
-      return { owner: { equals: user.id } }
-    },
-    create: ({ req: { user } }) => !!user,
-    update: ({ req: { user } }) => {
-      if (!user) return false
-      if (['admin', 'operator'].includes(user.role)) return true
-      return { owner: { equals: user.id } }
-    },
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    read: ownerScoped('owner'),
+    create: authenticated,
+    update: ownerScoped('owner'),
+    delete: adminOnly,
   },
   fields: [
-    { name: 'owner', type: 'relationship', relationTo: 'users', required: true, admin: { position: 'sidebar' } },
+    {
+      name: 'owner',
+      type: 'relationship',
+      relationTo: 'users',
+      required: true,
+      index: true,
+      admin: { position: 'sidebar' },
+      access: { update: staffOnlyField },
+    },
     { name: 'originalName', type: 'text', required: true },
     { name: 'fileHash', type: 'text', index: true },
-    { name: 'virusScanStatus', type: 'select', options: ['pending', 'clean', 'infected'], defaultValue: 'pending' },
-    { name: 'preflightResult', type: 'json' },
-    { name: 'previewPath', type: 'text' },
+    // Preflight and malware verdicts are machine-produced. They gate whether a
+    // file may enter production, so a customer must not be able to write them
+    // through the REST API — the narrow `forcePassPreflight` action is the only
+    // customer-facing path, and it permits `warning -> pass` only.
+    {
+      name: 'virusScanStatus',
+      type: 'select',
+      options: ['pending', 'clean', 'infected'],
+      defaultValue: 'pending',
+      access: { update: staffOnlyField },
+    },
+    { name: 'preflightResult', type: 'json', access: { update: staffOnlyField } },
+    { name: 'previewPath', type: 'text', access: { update: staffOnlyField } },
   ],
 }

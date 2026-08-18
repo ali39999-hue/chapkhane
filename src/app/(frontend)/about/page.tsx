@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Metadata } from "next";
-import { Users, Award, Clock, Printer, Factory, Sparkles, CheckCircle2, Cog, Server, Database, Activity, Layers } from "lucide-react";
+import { Users, Award, Printer, Factory, Cog, Server, Database, Activity, Layers } from "lucide-react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -25,7 +25,7 @@ const timeline = [
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-28 font-sans relative overflow-hidden">
+    <main id="main-content" className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-28 font-sans relative overflow-hidden">
       {/* Background Decor */}
       <div className="absolute inset-0 bg-grid-slate opacity-30 pointer-events-none -z-10" />
 

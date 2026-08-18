@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly } from '../../access'
 
 export const AuditLogs: CollectionConfig = {
   slug: 'audit-logs',
@@ -7,7 +8,7 @@ export const AuditLogs: CollectionConfig = {
   // change), so the "history for entity X" lookup needs a composite index.
   indexes: [{ fields: ['entity', 'entityId', 'createdAt'] }],
   access: {
-    read: ({ req: { user } }) => user?.role === 'admin',
+    read: adminOnly,
     create: () => false, // Handled internally via hooks
     update: () => false,
     delete: () => false,

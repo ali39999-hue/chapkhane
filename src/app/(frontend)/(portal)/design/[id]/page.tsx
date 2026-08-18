@@ -7,6 +7,24 @@ import { relationId } from "@/lib/relations";
 
 export const dynamic = "force-dynamic";
 
+const DESIGN_STATUS_LABELS: Record<string, string> = {
+  brief_submitted: 'در انتظار طراح',
+  in_design: 'در حال طراحی',
+  awaiting_feedback: 'نیازمند بررسی شما',
+  revision: 'در حال اصلاح',
+  final_approval: 'تأیید نهایی',
+  delivered: 'تحویل داده شده',
+};
+
+/** `brief` is a `json` column; render it as readable rows instead of raw JSON. */
+function briefEntries(brief: unknown): Array<[string, string]> {
+  if (typeof brief !== 'object' || brief === null || Array.isArray(brief)) return [];
+  return Object.entries(brief as Record<string, unknown>).map(([key, value]) => [
+    key,
+    typeof value === 'string' ? value : JSON.stringify(value),
+  ]);
+}
+
 export default async function DesignProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [{ id }, { payload, user }] = await Promise.all([params, requireUser()]);
 
@@ -14,7 +32,18 @@ export default async function DesignProjectDetailPage({ params }: { params: Prom
     .findByID({
       collection: "design-projects",
       id,
-      depth: 2, // Get package, briefs, artworks
+      // `depth: 1` populates the package and the round artworks. `depth: 2`
+      // additionally resolved every artwork's `owner`, and `deliverables` is
+      // never rendered here.
+      depth: 1,
+      select: {
+        customer: true,
+        designer: true,
+        package: true,
+        brief: true,
+        rounds: true,
+        status: true,
+      },
     })
     .catch(() => null);
 
@@ -28,6 +57,7 @@ export default async function DesignProjectDetailPage({ params }: { params: Prom
   }
 
   const isAwaitingFeedback = project.status === 'awaiting_feedback';
+  const designPackage = typeof project.package === 'object' && project.package !== null ? project.package : null;
 
   return (
     <div className="space-y-8 page-enter">
@@ -40,16 +70,11 @@ export default async function DesignProjectDetailPage({ params }: { params: Prom
             <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
               پروژه طراحی #{project.id.toString().slice(0, 8)}
               <span className="px-3 py-1 bg-primary-50 text-primary-600 text-sm font-bold rounded-full">
-                {project.status === 'brief_submitted' && 'در انتظار طراح'}
-                {project.status === 'in_design' && 'در حال طراحی'}
-                {project.status === 'awaiting_feedback' && 'نیازمند بررسی شما'}
-                {project.status === 'revision' && 'در حال اصلاح'}
-                {project.status === 'final_approval' && 'تأیید نهایی'}
-                {project.status === 'delivered' && 'تحویل داده شده'}
+                {DESIGN_STATUS_LABELS[project.status ?? ''] ?? project.status}
               </span>
             </h1>
             <p className="text-slate-500 mt-1 font-medium">
-              پکیج: {typeof project.package === 'object' ? project.package.name : "پکیج طراحی"}
+              پکیج: {designPackage?.name ?? "پکیج طراحی"}
             </p>
           </div>
         </div>
@@ -65,7 +90,7 @@ export default async function DesignProjectDetailPage({ params }: { params: Prom
           
           <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
             {project.rounds && project.rounds.length > 0 ? (
-              project.rounds.map((round: any, index: number) => (
+              project.rounds.map((round, index) => (
                 <div key={index} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                   {/* Timeline dot */}
                   <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 group-[.is-active]:bg-primary-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
@@ -78,9 +103,12 @@ export default async function DesignProjectDetailPage({ params }: { params: Prom
                     
                     {round.files && round.files.length > 0 && (
                       <div className="grid grid-cols-2 gap-2 mt-4">
-                        {round.files.map((file: any) => (
-                          <div key={typeof file === 'object' ? file.id : file} className="relative aspect-video bg-slate-50 rounded-lg overflow-hidden border border-slate-100 flex items-center justify-center">
-                            {typeof file === 'object' && file.url ? (
+                        {round.files.map((file) => (
+                          <div key={relationId(file) ?? String(file)} className="relative aspect-video bg-slate-50 rounded-lg overflow-hidden border border-slate-100 flex items-center justify-center">
+                            {typeof file === 'object' && file !== null && file.url ? (
+                              // Private artwork: not routed through the Next
+                              // image optimizer (shared, unauthenticated cache).
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img src={file.url} alt="اتود" className="object-cover w-full h-full" />
                             ) : (
                               <FileImage className="text-slate-300" />
@@ -131,16 +159,23 @@ export default async function DesignProjectDetailPage({ params }: { params: Prom
             <div className="space-y-4 text-sm text-slate-600">
               <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span>تعداد اصلاح رایگان:</span>
-                <span className="font-bold text-slate-800">{typeof project.package === 'object' ? project.package.revisions : '-'} راند</span>
+                <span className="font-bold text-slate-800">{designPackage?.revisions ?? '-'} راند</span>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span>زمان تحویل:</span>
-                <span className="font-bold text-slate-800">{typeof project.package === 'object' ? project.package.deliveryTime : '-'} روز کاری</span>
+                <span className="font-bold text-slate-800">{designPackage?.deliveryTime ?? '-'} روز کاری</span>
               </div>
-              {project.brief && (
+              {briefEntries(project.brief).length > 0 && (
                 <div className="pt-2">
                   <span className="block mb-2 font-bold text-slate-700">توضیحات شما:</span>
-                  <p className="bg-slate-50 p-3 rounded-xl whitespace-pre-wrap">{JSON.stringify(project.brief, null, 2)}</p>
+                  <dl className="bg-slate-50 p-3 rounded-xl space-y-2">
+                    {briefEntries(project.brief).map(([key, value]) => (
+                      <div key={key} className="flex gap-2">
+                        <dt className="font-bold text-slate-700 shrink-0">{key}:</dt>
+                        <dd className="whitespace-pre-wrap break-words">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
               )}
             </div>

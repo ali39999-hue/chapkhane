@@ -1,11 +1,12 @@
 import type { GlobalConfig } from 'payload'
+import { adminOnly, publicRead } from '../access'
 
 export const SiteSettings: GlobalConfig = {
   slug: 'site-settings',
   label: 'تنظیمات سایت',
   access: {
-    read: () => true,
-    update: ({ req: { user } }) => user?.role === 'admin',
+    read: publicRead,
+    update: adminOnly,
   },
   fields: [
     { name: 'siteName', type: 'text', defaultValue: 'چاپخانه آنلاین' },

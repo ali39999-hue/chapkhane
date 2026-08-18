@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { forcePassPreflight } from "./actions";
 import { Button } from "@/components/ui/Button";
-import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 export function ForcePassButton({ artworkId }: { artworkId: string }) {
   const [loading, setLoading] = useState(false);

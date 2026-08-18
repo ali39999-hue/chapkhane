@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { TrackClient } from "./TrackClient";
+import { TrackClient, type TrackOrder } from "./TrackClient";
 import { getPayload } from "payload";
 import configPromise from "@payload-config";
 import { Cpu } from "lucide-react";
@@ -15,22 +15,37 @@ export default async function TrackPage({ searchParams }: TrackPageProps) {
   const { order: orderQuery } = await searchParams;
   const payload = await getPayload({ config: configPromise });
 
-  let order = null;
+  let order: TrackOrder | null = null;
   if (orderQuery) {
+    // This route is public and the Local API defaults to `overrideAccess: true`,
+    // so the projection *is* the access control here: `depth: 1` used to
+    // populate the full `customer` record (email, phone, name) into the client
+    // payload for anyone who could guess an order number.
     const res = await payload
       .find({
         collection: "orders",
         where: { orderNumber: { equals: orderQuery } },
         limit: 1,
-        depth: 1,
+        depth: 0,
         pagination: false,
+        select: { orderNumber: true, status: true, createdAt: true, totals: true },
       })
       .catch(() => null);
-    order = res && res.totalDocs > 0 ? res.docs[0] : null;
+
+    const doc = res?.docs[0];
+    order = doc
+      ? {
+          id: doc.id,
+          orderNumber: doc.orderNumber,
+          status: doc.status,
+          createdAt: doc.createdAt,
+          total: doc.totals?.total ?? 0,
+        }
+      : null;
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-28 font-sans relative overflow-hidden">
+    <main id="main-content" className="min-h-screen bg-background text-foreground flex flex-col justify-between pt-28 font-sans relative overflow-hidden">
       <div className="absolute inset-0 bg-grid-slate opacity-30 pointer-events-none -z-10" />
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary-100/50 rounded-full blur-[100px] -z-10 pointer-events-none" />
 

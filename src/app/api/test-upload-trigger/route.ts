@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import configPromise from '@payload-config';
 import { getPreflightQueue } from '@/lib/queue';
@@ -6,7 +6,7 @@ import { Buffer } from 'buffer';
 import { PDFDocument } from 'pdf-lib';
 import { devOnlyGuard } from '@/lib/guard';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const blocked = devOnlyGuard();
   if (blocked) return blocked;
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const payload = await getPayload({ config: configPromise });
 
     // 1. Get first user
-    const users = await payload.find({ collection: 'users', limit: 1 });
+    const users = await payload.find({ collection: 'users', limit: 1, depth: 0, pagination: false });
     if (!users.docs.length) {
       return NextResponse.json({ error: 'No users found in DB to own the artwork' });
     }
@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
 
     const validArtwork = await payload.create({
       collection: 'artworks',
+      depth: 0,
       data: {
         originalName: 'valid.pdf',
         owner: admin.id,
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest) {
 
     const corruptArtwork = await payload.create({
       collection: 'artworks',
+      depth: 0,
       data: {
         originalName: 'wrong-size.pdf',
         owner: admin.id,
@@ -86,11 +88,8 @@ export async function GET(req: NextRequest) {
       validId: validArtwork.id, 
       corruptId: corruptArtwork.id 
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Test Trigger Error:', err);
-    if (err.data && err.data.errors) {
-       console.error('Validation errors:', JSON.stringify(err.data.errors, null, 2));
-    }
-    return NextResponse.json({ error: err.message, errors: err.data?.errors }, { status: 500 });
+    return NextResponse.json({ error: 'Test trigger failed.' }, { status: 500 });
   }
 }

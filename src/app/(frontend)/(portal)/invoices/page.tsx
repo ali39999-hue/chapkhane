@@ -1,16 +1,17 @@
-import { getPayload } from "payload";
-import configPromise from "@payload-config";
 import Link from "next/link";
-import { FileText, Printer, AlertCircle, Info } from "lucide-react";
+import { FileText, Printer, Info } from "lucide-react";
 import { formatNumber } from "@/utils/format-number";
 import { requireUser, scopeToUser } from "@/lib/auth";
+import { relationId } from "@/lib/relations";
 
 export const dynamic = "force-dynamic";
 
 export default async function InvoicesPage() {
   const { payload, user } = await requireUser();
 
-  // Only this user's own invoices (staff see everything)
+  // Only this user's own invoices (staff see everything). The table renders
+  // four fields; without `select` the `buyerInfo` JSON column came along for
+  // every row.
   const invoices = await payload.find({
     collection: "invoices",
     where: scopeToUser(user, "customer"),
@@ -18,6 +19,12 @@ export default async function InvoicesPage() {
     limit: 50,
     depth: 1, // To get order details
     pagination: false,
+    select: {
+      serialNumber: true,
+      order: true,
+      createdAt: true,
+      vatAmount: true,
+    },
   });
 
   return (
@@ -44,13 +51,15 @@ export default async function InvoicesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-secondary-100">
-                {invoices.docs.map((invoice: any) => (
+                {invoices.docs.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-secondary-50 transition-colors group">
                     <td className="px-6 py-5 font-black text-secondary-900 font-mono">
                       {invoice.serialNumber}
                     </td>
                     <td className="px-6 py-5 text-secondary-600 font-black font-mono">
-                      {typeof invoice.order === 'object' ? invoice.order.orderNumber : invoice.order}
+                      {typeof invoice.order === 'object' && invoice.order !== null
+                        ? invoice.order.orderNumber
+                        : relationId(invoice.order)}
                     </td>
                     <td className="px-6 py-5 text-secondary-500 font-medium">
                       {new Date(invoice.createdAt).toLocaleDateString('fa-IR')}
@@ -88,7 +97,7 @@ export default async function InvoicesPage() {
         <Info className="shrink-0 mt-0.5 text-primary-600" size={24} />
         <div className="text-sm">
           <p className="font-black text-base mb-1">نکته درباره فاکتورهای دارایی:</p>
-          <p className="font-medium leading-relaxed">تمامی فاکتورهای صادر شده در این بخش دارای فرمت استاندارد اداره مالیات بوده و به محض کلیک روی "چاپ فاکتور رسمی"، نسخه چاپیِ آماده به فرمت A4 بدون منوهای سایت باز می‌شود که می‌توانید آن را مستقیماً به PDF تبدیل (Save as PDF) کرده یا پرینت بگیرید.</p>
+          <p className="font-medium leading-relaxed">تمامی فاکتورهای صادر شده در این بخش دارای فرمت استاندارد اداره مالیات بوده و به محض کلیک روی «چاپ فاکتور رسمی»، نسخه چاپیِ آماده به فرمت A4 بدون منوهای سایت باز می‌شود که می‌توانید آن را مستقیماً به PDF تبدیل (Save as PDF) کرده یا پرینت بگیرید.</p>
         </div>
       </div>
     </div>

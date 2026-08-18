@@ -1,10 +1,10 @@
-import { getPayload } from 'payload';
+import { getPayload, type Payload } from 'payload';
 import configPromise from '../../payload.config';
 import fs from 'fs';
 import path from 'path';
-import { Buffer } from 'buffer';
 
-const IMAGES_DIR = 'C:\\Users\\Lenovo\\.gemini\\antigravity-ide\\brain\\1be1683b-a22c-4610-bae3-a7029a78514c';
+// Was a hardcoded absolute Windows path; override with SEED_IMAGES_DIR.
+const IMAGES_DIR = process.env.SEED_IMAGES_DIR ?? path.join(process.cwd(), 'scripts-local', 'seed-images');
 
 const mockImages = {
   bc_matte: 'business_card_matte_1786870268165.jpg',
@@ -19,7 +19,7 @@ const mockImages = {
   invoice: 'invoice_book_1786870387411.jpg',
 };
 
-async function uploadImage(payload: any, filename: string) {
+async function uploadImage(payload: Payload, filename: string) {
   const filePath = path.join(IMAGES_DIR, filename);
   if (!fs.existsSync(filePath)) {
     console.warn(`Image missing: ${filePath}`);

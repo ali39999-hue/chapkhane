@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { ProofClient } from "./ProofClient";
-import { Navbar } from "@/components/layout/Navbar";
+import { ProofClient, type ProofView } from "./ProofClient";
 import { requireUser, isStaff } from "@/lib/auth";
 import { relationId } from "@/lib/relations";
 
@@ -9,12 +8,22 @@ export const dynamic = "force-dynamic";
 export default async function ProofPage({ params }: { params: Promise<{ id: string }> }) {
   const [{ id }, { payload, user }] = await Promise.all([params, requireUser()]);
 
-  // Fetch the proof
+  // Only the fields the client actually renders. `approvalIp` and
+  // `signedAgreementText` are audit-trail data and stay on the server.
   const proof = await payload
     .findByID({
       collection: "proofs",
       id,
-      depth: 1, // populate orderItem
+      depth: 0,
+      select: {
+        status: true,
+        version: true,
+        url: true,
+        filename: true,
+        customerFeedback: true,
+        customer: true,
+        orderItem: true,
+      },
     })
     .catch(() => null);
 
@@ -27,35 +36,45 @@ export default async function ProofPage({ params }: { params: Promise<{ id: stri
 
   // Get order ID from orderItem relationship. OrderItem has no `order`
   // back-reference, so we query the orders collection to find the parent order.
-  const orderItemId = typeof proof.orderItem === 'object' ? proof.orderItem.id : proof.orderItem;
+  const orderItemId = relationId(proof.orderItem);
 
-  const orderRes = await payload.find({
-    collection: "orders",
-    where: {
-      items: { contains: orderItemId },
-    },
-    limit: 1,
-    depth: 0,
-    pagination: false,
-  });
+  const orderRes = orderItemId !== undefined
+    ? await payload.find({
+        collection: "orders",
+        where: { items: { contains: orderItemId } },
+        limit: 1,
+        depth: 0,
+        pagination: false,
+        select: {},
+      })
+    : null;
 
-  if (orderRes.totalDocs === 0) {
+  const parentOrder = orderRes?.docs[0];
+  if (!parentOrder) {
     return <div className="p-10 text-center">خطا: سفارش مربوط به این طرح یافت نشد.</div>;
   }
 
-  const orderId = String(orderRes.docs[0].id);
+  const view: ProofView = {
+    id: proof.id,
+    status: proof.status ?? "pending",
+    version: proof.version,
+    url: proof.url,
+    filename: proof.filename,
+    customerFeedback: proof.customerFeedback,
+  };
 
   return (
-    <main className="min-h-screen bg-slate-50 pt-32 pb-20">
-      <Navbar />
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-slate-900 mb-2">تأییدیه پیش از چاپ (Proof)</h1>
-          <p className="text-slate-600 font-medium">لطفاً طرح زیر را بررسی کرده و جهت ارسال به تولید، آن را تأیید کنید.</p>
-        </div>
-
-        <ProofClient proof={proof} orderId={orderId} />
+    // This route is inside the (portal) group, whose layout already provides
+    // the sidebar and the `<main id="main-content">` landmark. It previously
+    // rendered its own `<main>` plus the public `<Navbar />`, which produced
+    // nested <main> elements and a fixed navbar overlapping the portal sidebar.
+    <div className="space-y-6 page-enter">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">تأییدیه پیش از چاپ (Proof)</h1>
+        <p className="text-slate-600 font-medium">لطفاً طرح زیر را بررسی کرده و جهت ارسال به تولید، آن را تأیید کنید.</p>
       </div>
-    </main>
+
+      <ProofClient proof={view} orderId={String(parentOrder.id)} />
+    </div>
   );
 }

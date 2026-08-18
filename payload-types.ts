@@ -554,7 +554,9 @@ export interface OrderItem {
   artwork?: (number | null) | Artwork;
   designProject?: (number | null) | DesignProject;
   proofs?: (number | Proof)[] | null;
-  itemStatus?: string | null;
+  itemStatus?:
+    | ('pending' | 'prepress' | 'printing' | 'finishing' | 'quality_check' | 'ready' | 'done' | 'on_hold' | 'cancelled')
+    | null;
   updatedAt: string;
   createdAt: string;
 }

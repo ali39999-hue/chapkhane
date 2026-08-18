@@ -59,12 +59,13 @@ function statusToStepIndex(status: string): number {
   }
 }
 
-interface TrackOrder {
+/** Lean projection built by the server; deliberately excludes customer data. */
+export interface TrackOrder {
   id: number;
   orderNumber: string;
   status: string;
   createdAt: string;
-  totals?: { total?: number } | null;
+  total: number;
 }
 
 export function TrackClient({
@@ -92,27 +93,38 @@ export function TrackClient({
     <>
       {/* Search Bar */}
       <section className="max-w-xl mx-auto mb-12">
-        <form onSubmit={handleSearch} className="relative flex items-center shadow-soft rounded-xl bg-white p-2 border border-secondary-200">
+        <form onSubmit={handleSearch} className="relative flex items-center shadow-soft rounded-xl bg-white p-2 border border-secondary-200 focus-within:border-primary-400">
+          <label htmlFor="track-order-number" className="sr-only">
+            شماره سفارش
+          </label>
           <input
+            id="track-order-number"
+            name="order"
             type="text"
             value={orderNumber}
             onChange={(e) => setOrderNumber(e.target.value)}
             placeholder="مثلاً: ORD-9821"
-            className="flex-1 h-13 px-4 bg-transparent outline-none font-bold text-secondary-900 text-sm sm:text-base placeholder:text-secondary-400"
+            // Tailwind's `outline-none` sits in the utilities layer and beats the
+            // global `:focus-visible` rule, so this input needs its own ring.
+            className="flex-1 h-13 px-4 bg-transparent font-bold text-secondary-900 text-sm sm:text-base placeholder:text-secondary-400 rounded-lg outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
             dir="ltr"
+            autoComplete="off"
           />
           <button
             type="submit"
             className="h-12 px-6 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-lg shadow-md shadow-primary-600/20 transition-all hover:-translate-y-0.5 flex items-center gap-2 shrink-0"
           >
-            <Search size={18} />
+            <Search size={18} aria-hidden="true" />
             <span>استعلام وضعیت</span>
           </button>
         </form>
 
         {!order && initialQuery && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center gap-2">
-            <AlertTriangle size={18} className="shrink-0" />
+          <div
+            className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center gap-2"
+            role="status"
+          >
+            <AlertTriangle size={18} className="shrink-0" aria-hidden="true" />
             سفارشی با این شماره یافت نشد. شماره سفارش را درست وارد کنید.
           </div>
         )}
@@ -138,7 +150,7 @@ export function TrackClient({
             <div>
               <span className="text-xs text-secondary-500 font-bold block mb-1">مبلغ سفارش</span>
               <span className="text-sm font-bold text-emerald-600">
-                {new Intl.NumberFormat('fa-IR').format(order.totals?.total || 0)} ریال
+                {new Intl.NumberFormat('fa-IR').format(order.total)} ریال
               </span>
             </div>
             <div>

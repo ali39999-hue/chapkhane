@@ -1,15 +1,25 @@
-import { getPayload } from "payload";
-import configPromise from "@payload-config";
 import { notFound } from "next/navigation";
 import { ReorderButton } from "./ReorderButton";
 import { formatNumber } from "@/utils/format-number";
-import { ArrowRight, CheckCircle, Package, Clock, FileText, Truck, ExternalLink, Printer } from "lucide-react";
+import { ArrowRight, CheckCircle, Clock, FileText, Truck, ExternalLink, Printer } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { requireUser, isStaff } from "@/lib/auth";
 import { relationId } from "@/lib/relations";
+import { orderStatusLabel, orderStatusTone } from "@/modules/workflow/labels";
+
+import { CancelOrderButton } from "./CancelOrderButton";
 
 export const dynamic = "force-dynamic";
+
+/** `configuration` is a `json` column, so Payload types it as `unknown`. */
+function configuredPaperId(configuration: unknown): string | undefined {
+  if (typeof configuration !== "object" || configuration === null) return undefined;
+  const value = (configuration as { paperTypeId?: unknown }).paperTypeId;
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return undefined;
+}
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [{ id }, { payload, user }] = await Promise.all([params, requireUser()]);
@@ -18,7 +28,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     .findByID({
       collection: "orders",
       id,
-      depth: 2, // Get items and their product info
+      // `depth: 1` populates `items`. `depth: 2` would additionally resolve
+      // each item's productType, artwork, designProject and every proof —
+      // four relationships per line — to render one product name.
+      depth: 1,
     })
     .catch(() => null);
 
@@ -29,22 +42,44 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     notFound();
   }
 
-  // Resolve paper names for order items (configuration stores paperTypeId).
-  const paperIds = (order.items ?? [])
-    .map((item: any) => item.configuration?.paperTypeId)
-    .filter((id: unknown): id is string => typeof id === 'string');
-  const papersRes = paperIds.length > 0
-    ? await payload.find({
-        collection: "paper-types",
-        where: { id: { in: paperIds } },
-        limit: paperIds.length,
-        depth: 0,
-        pagination: false,
-      })
-    : null;
-  const paperNameById = new Map(
-    (papersRes?.docs ?? []).map((p) => [String(p.id), p.name])
+  const items = (order.items ?? []).flatMap((item) =>
+    typeof item === "object" && item !== null ? [item] : []
   );
+
+  // Resolve paper and product names in two batched queries instead of a deep
+  // populate.
+  const paperIds = [
+    ...new Set(items.map((item) => configuredPaperId(item.configuration)).filter((v): v is string => !!v)),
+  ];
+  const productTypeIds = [
+    ...new Set(items.map((item) => relationId(item.productType)).filter((v): v is number => v !== undefined)),
+  ];
+
+  const [papersRes, productsRes] = await Promise.all([
+    paperIds.length > 0
+      ? payload.find({
+          collection: "paper-types",
+          where: { id: { in: paperIds } },
+          limit: paperIds.length,
+          depth: 0,
+          pagination: false,
+          select: { name: true },
+        })
+      : Promise.resolve(null),
+    productTypeIds.length > 0
+      ? payload.find({
+          collection: "product-types",
+          where: { id: { in: productTypeIds } },
+          limit: productTypeIds.length,
+          depth: 0,
+          pagination: false,
+          select: { name: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const paperNameById = new Map((papersRes?.docs ?? []).map((p) => [String(p.id), p.name]));
+  const productNameById = new Map((productsRes?.docs ?? []).map((p) => [String(p.id), p.name]));
 
   const timelineSteps = [
     { key: "draft", label: "ثبت اولیه" },
@@ -77,8 +112,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-secondary-900 tracking-tight flex flex-wrap items-center gap-3">
               سفارش <span className="font-mono text-primary-600">{order.orderNumber}</span>
-              <span className="px-3 py-1 bg-primary-50 text-primary-700 text-sm font-black rounded-lg border border-primary-100">
-                {order.status}
+              <span className={`px-3 py-1 text-sm font-black rounded-lg border border-primary-100 ${orderStatusTone(order.status)}`}>
+                {orderStatusLabel(order.status)}
               </span>
             </h1>
             <p className="text-secondary-500 mt-1 font-medium text-sm">
@@ -87,7 +122,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          {(order.status === 'draft' || order.status === 'awaiting_payment') && (
+            <CancelOrderButton orderId={String(order.id)} />
+          )}
           <Link href={`/invoice/${order.id}`} target="_blank">
             <Button variant="outline" className="bg-white hover:bg-secondary-50 border-secondary-200">
               <FileText size={18} className="ml-2" />
@@ -162,30 +200,41 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <Printer size={20} className="text-primary-600" />
             اقلام سفارش
           </h2>
-          {order.items?.map((item: any) => (
-            <div key={item.id} className="bg-white border border-secondary-200 rounded-2xl p-6 flex flex-col sm:flex-row gap-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-24 h-24 bg-secondary-50 rounded-xl border border-secondary-100 flex items-center justify-center flex-shrink-0 text-secondary-400">
-                <FileText size={32} />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-black text-secondary-900 mb-2">
-                  {typeof item.productType === 'object' ? (item.productType.name || "محصول چاپی") : "محصول چاپی"}
-                </h3>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="px-3 py-1 bg-secondary-50 border border-secondary-200 text-secondary-700 rounded-lg text-xs font-bold">تیراژ: {item.quantity}</span>
-                  {item.configuration?.paperTypeId && (
-                    <span className="px-3 py-1 bg-secondary-50 border border-secondary-200 text-secondary-700 rounded-lg text-xs font-bold">
-                      کاغذ: {paperNameById.get(String(item.configuration.paperTypeId)) || item.configuration.paperTypeId}
-                    </span>
-                  )}
+          {items.map((item) => {
+            const paperId = configuredPaperId(item.configuration);
+            const productTypeId = relationId(item.productType);
+            const productName =
+              (productTypeId !== undefined ? productNameById.get(String(productTypeId)) : undefined) ??
+              (typeof item.productType === "object" && item.productType !== null
+                ? item.productType.name
+                : undefined) ??
+              "محصول چاپی";
+
+            return (
+              <div key={item.id} className="bg-white border border-secondary-200 rounded-2xl p-6 flex flex-col sm:flex-row gap-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-24 h-24 bg-secondary-50 rounded-xl border border-secondary-100 flex items-center justify-center flex-shrink-0 text-secondary-400">
+                  <FileText size={32} />
                 </div>
-                <div className="flex justify-between items-end border-t border-secondary-100 pt-4 mt-2">
-                  <span className="text-secondary-500 font-bold text-sm">مبلغ این آیتم:</span>
-                  <span className="text-lg font-black text-secondary-900">{formatNumber(item.totalPrice)} ریال</span>
+                <div className="flex-1">
+                  <h3 className="text-lg font-black text-secondary-900 mb-2">
+                    {productName}
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <span className="px-3 py-1 bg-secondary-50 border border-secondary-200 text-secondary-700 rounded-lg text-xs font-bold">تیراژ: {item.quantity}</span>
+                    {paperId && (
+                      <span className="px-3 py-1 bg-secondary-50 border border-secondary-200 text-secondary-700 rounded-lg text-xs font-bold">
+                        کاغذ: {paperNameById.get(paperId) || paperId}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-end border-t border-secondary-100 pt-4 mt-2">
+                    <span className="text-secondary-500 font-bold text-sm">مبلغ این آیتم:</span>
+                    <span className="text-lg font-black text-secondary-900">{formatNumber(item.totalPrice)} ریال</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Financial Summary */}

@@ -1,29 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
-import { calculatePrice } from '@/modules/pricing/engine'
-import { PricingInputSchema, PricingContext, PriceList } from '@/modules/pricing/types'
+import { calculatePrice, PricingError } from '@/modules/pricing/engine'
+import {
+  ClientPricingInputSchema,
+  type PricingContext,
+  type PriceList,
+  type PricingInput,
+} from '@/modules/pricing/types'
 import { getCachedActivePriceList } from '@/modules/pricing/cache'
 import { rateLimit } from '@/lib/rate-limit'
+import { clientIp } from '@/lib/request-ip'
 import { relationId } from '@/lib/relations'
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for') || '127.0.0.1'
-
-  const { allowed } = await rateLimit(ip, { max: 20, windowMs: 60_000 })
+  const { allowed } = await rateLimit(`quote:${clientIp(req)}`, { max: 30, windowMs: 60_000 })
   if (!allowed) {
     return NextResponse.json({ error: 'Too many requests (Rate Limited)' }, { status: 429 })
   }
 
   try {
     const body = await req.json()
-    const parseResult = PricingInputSchema.safeParse(body)
+    // Parsed with the client-facing schema, which strips `customerTier` and
+    // `couponCode`. Both are resolved server-side below.
+    const parseResult = ClientPricingInputSchema.safeParse(body)
 
     if (!parseResult.success) {
       return NextResponse.json({ error: 'خطا در اعتبارسنجی ورودی‌ها', details: parseResult.error.format() }, { status: 400 })
     }
 
-    const input = parseResult.data
+    const input: PricingInput = {
+      ...parseResult.data,
+      customerTier: { type: 'guest', discountPercent: 0 },
+    }
     const payload = await getPayload({ config: configPromise })
 
     const finishingIds = input.finishing.map((f) => f.id)
@@ -72,9 +81,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'گزینه زمان تحویل یافت نشد.' }, { status: 404 })
     }
 
-    // Server is the authority on the customer tier; never trust the client body.
-    input.customerTier = { type: 'guest', discountPercent: 0 }
-
+    // Server is the authority on the customer tier; the client body cannot
+    // carry one (see ClientPricingInputSchema).
     const orgId = relationId(user?.organization)
     if (user?.role === 'b2b' && orgId !== undefined) {
       const org = await payload.findByID({
@@ -132,7 +140,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result)
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    // A configuration the price list cannot price is a 422, not a 500: the
+    // request was well-formed, the combination simply has no tariff row. This
+    // previously surfaced in the browser console as a server error on every
+    // product whose seeded grammage did not match its price row.
+    if (error instanceof PricingError) {
+      return NextResponse.json({ error: error.message, unpriceable: true }, { status: 422 })
+    }
+    console.error('[Pricing Quote Error]:', error)
+    return NextResponse.json({ error: 'خطای سرور در محاسبه قیمت.' }, { status: 500 })
   }
 }

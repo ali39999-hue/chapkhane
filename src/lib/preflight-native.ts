@@ -34,7 +34,7 @@ export async function checkPreflightNative(buffer: Buffer): Promise<{ status: 'a
     }
 
     return { status: 'approved', errors: [] };
-  } catch (error: any) {
+  } catch {
     return { status: 'rejected', errors: ['فایل نامعتبر است یا با رمز عبور قفل شده است.'] };
   }
 }

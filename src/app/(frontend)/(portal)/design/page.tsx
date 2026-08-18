@@ -1,8 +1,6 @@
-import { getPayload } from "payload";
-import configPromise from "@payload-config";
 import Link from "next/link";
-import { PenTool, Clock, CheckCircle, ChevronLeft, Eye, MessageSquare } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { PenTool, MessageSquare } from "lucide-react";
+import { isStaff, requireUser } from "@/lib/auth";
 import type { Where } from "payload";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +13,13 @@ export default async function DesignProjectsPage() {
   let where: Where = {};
   if (user.role === 'designer') {
     where = { designer: { equals: user.id } };
-  } else if (!['admin', 'operator'].includes(user.role)) {
+  } else if (!isStaff(user)) {
     where = { customer: { equals: user.id } };
   }
 
+  // The table renders four fields. `depth: 1` without `select` populated
+  // `customer`, `designer`, `orderItem`, `deliverables` and every
+  // `rounds[].files` relationship just to read one package name.
   const projects = await payload.find({
     collection: "design-projects",
     where,
@@ -26,6 +27,11 @@ export default async function DesignProjectsPage() {
     limit: 50,
     depth: 1,
     pagination: false,
+    select: {
+      package: true,
+      createdAt: true,
+      status: true,
+    },
   });
 
   return (
@@ -57,7 +63,9 @@ export default async function DesignProjectsPage() {
                       #{project.id.toString().slice(0, 8)}
                     </td>
                     <td className="px-6 py-5 text-slate-600 font-medium">
-                      {typeof project.package === 'object' ? project.package.name : "پکیج طراحی"}
+                      {typeof project.package === 'object' && project.package !== null
+                        ? project.package.name
+                        : "پکیج طراحی"}
                     </td>
                     <td className="px-6 py-5 text-slate-500">
                       {new Date(project.createdAt).toLocaleDateString('fa-IR')}

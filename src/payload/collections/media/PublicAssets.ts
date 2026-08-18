@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { adminOnly, publicRead } from '../../access'
 
 export const PublicAssets: CollectionConfig = {
   slug: 'public-assets',
@@ -12,10 +13,10 @@ export const PublicAssets: CollectionConfig = {
     mimeTypes: ['image/*'],
   },
   access: {
-    read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    read: publicRead,
+    create: adminOnly,
+    update: adminOnly,
+    delete: adminOnly,
   },
   fields: [
     { name: 'alt', type: 'text', label: 'متن جایگزین (Alt)' },

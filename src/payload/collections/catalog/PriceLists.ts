@@ -1,15 +1,20 @@
 import type { CollectionConfig } from 'payload'
 import { invalidatePriceListCache } from '../../../modules/pricing/cache'
+import { adminOnly, staffOnly } from '../../access'
 
 export const PriceLists: CollectionConfig = {
   slug: 'price-lists',
   labels: { singular: 'لیست قیمت', plural: 'لیست‌های قیمت' },
   admin: { useAsTitle: 'version' },
   access: {
-    read: () => true, // API needs this for calculation, but UI restricts updates
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    // Was `() => true`, which published the entire internal tariff (every
+    // `basePrice`) at `GET /api/price-lists`. The pricing engine reads this
+    // through the Local API, which ignores access control anyway, so public
+    // read bought nothing.
+    read: staffOnly,
+    create: adminOnly,
+    update: adminOnly,
+    delete: adminOnly,
   },
   hooks: {
     afterChange: [

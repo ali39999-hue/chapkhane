@@ -13,6 +13,9 @@ export async function GET() {
       collection: 'product-types',
       limit: 100,
       sort: '-createdAt',
+      depth: 0,
+      pagination: false,
+      select: { name: true, slug: true },
     });
 
     const seenNames = new Set<string>();
@@ -29,10 +32,11 @@ export async function GET() {
       }
     }
 
-    for (const id of toDelete) {
+    // One bulk delete instead of a sequential round trip per duplicate.
+    if (toDelete.length > 0) {
       await payload.delete({
         collection: 'product-types',
-        id,
+        where: { id: { in: toDelete } },
       });
     }
 
@@ -43,7 +47,8 @@ export async function GET() {
       keptCount: kept.length,
       kept,
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error('[Clean Duplicates Error]:', error);
+    return NextResponse.json({ success: false, error: 'Cleanup failed.' }, { status: 500 });
   }
 }

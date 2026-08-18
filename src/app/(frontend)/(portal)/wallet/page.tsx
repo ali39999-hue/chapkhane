@@ -1,4 +1,4 @@
-import { Wallet, ArrowDownLeft, ArrowUpRight, Plus, CreditCard, RefreshCw } from "lucide-react";
+import { Wallet, ArrowDownLeft, ArrowUpRight, Plus, CreditCard, CheckCircle } from "lucide-react";
 import { formatNumber } from "@/utils/format-number";
 import { requireUser } from "@/lib/auth";
 import { relationId } from "@/lib/relations";
@@ -19,16 +19,24 @@ export default async function WalletPage() {
   let transactions: CreditTransaction[] = [];
 
   if (orgId) {
-    const org = await payload.findByID({ collection: "organizations", id: orgId, depth: 0 });
+    // Both reads key off `orgId`, so they are independent of each other.
+    const [org, res] = await Promise.all([
+      payload.findByID({
+        collection: "organizations",
+        id: orgId,
+        depth: 0,
+        select: { balance: true },
+      }),
+      payload.find({
+        collection: "credit-transactions",
+        where: { organization: { equals: orgId } },
+        sort: "-createdAt",
+        limit: 10,
+        depth: 0,
+        pagination: false,
+      }),
+    ]);
     balance = org?.balance || 0;
-    const res = await payload.find({
-      collection: "credit-transactions",
-      where: { organization: { equals: orgId } },
-      sort: "-createdAt",
-      limit: 10,
-      depth: 0,
-      pagination: false,
-    });
     transactions = res.docs;
   }
 
@@ -86,9 +94,9 @@ export default async function WalletPage() {
                   <CreditCard size={18} />
                   شارژ حساب
                 </Link>
-                <button className="p-3 bg-primary-700 hover:bg-primary-800 text-white rounded-xl transition-colors shadow-sm" title="به‌روزرسانی موجودی">
-                  <RefreshCw size={18} />
-                </button>
+                {/* The previous "refresh" button was inert: this is a server
+                    component, so it could not carry a handler. The page is
+                    force-dynamic, so a normal reload already refreshes it. */}
               </div>
           </div>
         </div>
@@ -134,26 +142,5 @@ export default async function WalletPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Simple internal icon for CheckCircle since lucide imports didn't have it on top
-function CheckCircle(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
   );
 }

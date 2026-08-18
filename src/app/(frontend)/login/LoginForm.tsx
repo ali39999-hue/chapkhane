@@ -28,6 +28,8 @@ export function LoginForm({ next }: { next: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forgotModal, setForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotState, setForgotState] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
   // Password Login through Payload's REST API
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -60,9 +62,35 @@ export function LoginForm({ next }: { next: string }) {
       setMessage("ورود موفق بود. در حال انتقال...");
       router.push(next && next.startsWith("/") ? next : "/dashboard");
       router.refresh();
-    } catch (err) {
+    } catch {
       setError("خطا در برقراری ارتباط با سرور.");
       setLoading(false);
+    }
+  };
+
+  /**
+   * Wired to Payload's built-in `forgot-password` endpoint. The modal used to
+   * collect an email and discard it.
+   *
+   * The response is intentionally the same whether or not the account exists,
+   * so this cannot be used to enumerate registered emails.
+   */
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) {
+      setForgotState("error");
+      return;
+    }
+
+    setForgotState("sending");
+    try {
+      await fetch("/api/users/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      setForgotState("sent");
+    } catch {
+      setForgotState("error");
     }
   };
 
@@ -80,34 +108,42 @@ export function LoginForm({ next }: { next: string }) {
         <button
           type="button"
           onClick={() => { setAuthMode('otp'); setMessage(null); setError(null); }}
-          className={`py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          aria-pressed={authMode === 'otp'}
+          className={`py-3 min-h-12 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             authMode === 'otp' ? "bg-primary-600 text-white shadow-md shadow-primary-600/20" : "text-secondary-500 hover:text-secondary-700"
           }`}
         >
-          <Smartphone size={15} />
+          <Smartphone size={15} aria-hidden="true" />
           <span>ورود با پیامک (OTP)</span>
         </button>
 
         <button
           type="button"
           onClick={() => { setAuthMode('password'); setMessage(null); setError(null); }}
-          className={`py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          aria-pressed={authMode === 'password'}
+          className={`py-3 min-h-12 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             authMode === 'password' ? "bg-primary-600 text-white shadow-md shadow-primary-600/20" : "text-secondary-500 hover:text-secondary-700"
           }`}
         >
-          <KeyRound size={15} />
+          <KeyRound size={15} aria-hidden="true" />
           <span>ورود با کلمه عبور</span>
         </button>
       </div>
 
       {/* Message / Error Banner */}
       {error && (
-        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-700 text-center">
+        <div
+          className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-700 text-center"
+          role="alert"
+        >
           {error}
         </div>
       )}
       {message && !error && (
-        <div className="p-3.5 bg-primary-50 border border-primary-200 rounded-xl text-xs font-bold text-primary-700 text-center">
+        <div
+          className="p-3.5 bg-primary-50 border border-primary-200 rounded-xl text-xs font-bold text-primary-700 text-center"
+          role="status"
+        >
           {message}
         </div>
       )}
@@ -116,10 +152,14 @@ export function LoginForm({ next }: { next: string }) {
       {authMode === 'otp' && (
         <form onSubmit={handleSendOtp} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-secondary-600 mb-2">شماره تلفن همراه</label>
+            <label htmlFor="login-phone" className="block text-xs font-bold text-secondary-600 mb-2">شماره تلفن همراه</label>
             <input
+              id="login-phone"
+              name="tel"
               type="tel"
               required
+              inputMode="tel"
+              autoComplete="tel"
               placeholder="۰۹۱۲۳۴۵۶۷۸۹"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -138,7 +178,7 @@ export function LoginForm({ next }: { next: string }) {
             className="w-full h-13 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-xl shadow-md shadow-primary-600/20 flex items-center justify-center gap-2"
           >
             دریافت کد تایید
-            <ArrowLeft size={16} />
+            <ArrowLeft size={16} aria-hidden="true" />
           </Button>
         </form>
       )}
@@ -147,11 +187,14 @@ export function LoginForm({ next }: { next: string }) {
       {authMode === 'password' && (
         <form onSubmit={handlePasswordLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-secondary-600 mb-2">ایمیل</label>
+            <label htmlFor="login-email" className="block text-xs font-bold text-secondary-600 mb-2">ایمیل</label>
             <input
+              id="login-email"
+              name="email"
               type="email"
               required
-              placeholder="admin@chapkhane.ir"
+              autoComplete="email"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               dir="ltr"
@@ -161,18 +204,21 @@ export function LoginForm({ next }: { next: string }) {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-secondary-600">کلمه عبور</label>
+              <label htmlFor="login-password" className="text-xs font-bold text-secondary-600">کلمه عبور</label>
               <button
                 type="button"
                 onClick={() => setForgotModal(true)}
-                className="text-[11px] text-primary-600 hover:underline font-bold"
+                className="text-[11px] text-primary-600 hover:underline font-bold py-2 px-1"
               >
                 فراموشی رمز؟
               </button>
             </div>
             <input
+              id="login-password"
+              name="password"
               type="password"
               required
+              autoComplete="current-password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -187,7 +233,7 @@ export function LoginForm({ next }: { next: string }) {
             className="w-full h-13 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-xl shadow-md shadow-primary-600/20 flex items-center justify-center gap-2"
           >
             {loading ? "در حال ورود..." : "ورود به سامانه"}
-            <ArrowLeft size={16} />
+            <ArrowLeft size={16} aria-hidden="true" />
           </Button>
         </form>
       )}
@@ -196,11 +242,11 @@ export function LoginForm({ next }: { next: string }) {
       <div className="pt-4 border-t border-secondary-200 text-center space-y-3">
         <p className="text-xs text-secondary-500 font-medium">
           ورود شما به منزله پذیرش{" "}
-          <Link href="/guide" className="text-primary-600 hover:underline font-bold">قوانین و استانداردهای چاپخانه</Link> است.
+          <Link href="/guide" className="text-primary-600 hover:underline font-bold inline-block py-1">قوانین و استانداردهای چاپخانه</Link> است.
         </p>
 
-        <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs text-secondary-400 hover:text-secondary-600 font-bold">
-          <Cpu size={14} />
+        <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs text-secondary-400 hover:text-secondary-600 font-bold py-2">
+          <Cpu size={14} aria-hidden="true" />
           ورود به پنل مدیریت چاپخانه (Admin Console)
         </Link>
       </div>
@@ -211,21 +257,60 @@ export function LoginForm({ next }: { next: string }) {
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl space-y-4 text-right border border-secondary-200 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-full h-1 bg-primary-600" />
             <h3 className="text-lg font-black text-secondary-900">بازیابی کلمه عبور</h3>
-            <p className="text-xs text-secondary-600 leading-relaxed font-medium">
-              ایمیل خود را وارد کنید تا لینک تغییر رمز برای شما ارسال شود.
-            </p>
-            <input
-              type="email"
-              placeholder="you@example.com"
-              dir="ltr"
-              className="w-full h-12 px-4 rounded-xl bg-secondary-50 border border-secondary-200 text-sm font-bold text-secondary-900 text-right outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 placeholder:text-secondary-400"
-            />
-            <Button onClick={() => setForgotModal(false)} className="w-full h-12 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs rounded-xl">
-              ارسال لینک بازیابی
-            </Button>
-            <button onClick={() => setForgotModal(false)} className="w-full text-center text-xs text-secondary-400 hover:text-secondary-600 py-1 font-bold">
-              انصراف و بستن
-            </button>
+
+            {forgotState === "sent" ? (
+              <>
+                <p className="text-xs text-secondary-600 leading-relaxed font-medium">
+                  اگر این ایمیل در سامانه ثبت شده باشد، لینک تغییر رمز برای آن ارسال شد. صندوق ورودی خود را بررسی کنید.
+                </p>
+                <Button
+                  onClick={() => {
+                    setForgotModal(false);
+                    setForgotState("idle");
+                    setForgotEmail("");
+                  }}
+                  className="w-full h-12 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs rounded-xl"
+                >
+                  بستن
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-secondary-600 leading-relaxed font-medium">
+                  ایمیل خود را وارد کنید تا لینک تغییر رمز برای شما ارسال شود.
+                </p>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  dir="ltr"
+                  value={forgotEmail}
+                  onChange={(e) => {
+                    setForgotEmail(e.target.value);
+                    if (forgotState === "error") setForgotState("idle");
+                  }}
+                  className="w-full h-12 px-4 rounded-xl bg-secondary-50 border border-secondary-200 text-sm font-bold text-secondary-900 text-right outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 placeholder:text-secondary-400"
+                />
+                {forgotState === "error" && (
+                  <p className="text-[11px] font-bold text-red-600">ایمیل معتبری وارد کنید.</p>
+                )}
+                <Button
+                  onClick={handleForgotPassword}
+                  disabled={forgotState === "sending"}
+                  className="w-full h-12 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs rounded-xl"
+                >
+                  {forgotState === "sending" ? "در حال ارسال..." : "ارسال لینک بازیابی"}
+                </Button>
+                <button
+                  onClick={() => {
+                    setForgotModal(false);
+                    setForgotState("idle");
+                  }}
+                  className="w-full text-center text-xs text-secondary-400 hover:text-secondary-600 py-1 font-bold"
+                >
+                  انصراف و بستن
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -1,10 +1,27 @@
-import { getPayload } from 'payload';
+import { getPayload, type Payload } from 'payload';
 import configPromise from '@payload-config';
 import type { FinishingOption, Order, Organization, ProductType, TurnaroundOption } from '../../../payload-types';
 import { calculatePrice } from '../pricing/engine';
-import { PricingInputSchema, PricingContext, PriceList, type PricingInput } from '../pricing/types';
+import { ClientPricingInputSchema, PricingContext, PriceList, type PricingInput } from '../pricing/types';
 import { getCachedActivePriceList } from '../pricing/cache';
 import { nextOrderNumber } from './order-number';
+import { relationId } from '../../lib/relations';
+
+/**
+ * A checkout failure that is safe to show the customer verbatim.
+ *
+ * The API route uses this to decide between echoing `error.message` and
+ * returning a generic 500, so Postgres constraint text never reaches a client.
+ */
+export class CheckoutError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = 'CheckoutError';
+    this.status = status;
+  }
+}
 
 export type CheckoutItemInput = {
   config: unknown;
@@ -13,13 +30,11 @@ export type CheckoutItemInput = {
 
 /** Uniform relationship-ID reader: relations can arrive populated or as a raw ID. */
 function relId(value: unknown): number | undefined {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const parsed = Number(value);
+  const id = relationId(value);
+  if (typeof id === 'number') return id;
+  if (typeof id === 'string') {
+    const parsed = Number(id);
     return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  if (value && typeof value === 'object' && 'id' in value) {
-    return relId((value as { id: unknown }).id);
   }
   return undefined;
 }
@@ -28,19 +43,22 @@ export async function processCheckout(
   userId: number | string,
   items: CheckoutItemInput[],
   shippingAddress: unknown,
-  paymentMethod: 'gateway' | 'wallet' = 'gateway'
+  paymentMethod: 'gateway' | 'wallet' = 'gateway',
+  options: { payload?: Payload } = {}
 ): Promise<Order> {
-  const payload = await getPayload({ config: configPromise });
+  const payload = options.payload ?? (await getPayload({ config: configPromise }));
 
   if (!Array.isArray(items) || items.length === 0) {
-    throw new Error('سبد خرید خالی است.');
+    throw new CheckoutError('سبد خرید خالی است.');
   }
 
   // 1. Validate every line item up front so we fail before touching the DB.
+  //    The client-facing schema strips `customerTier`/`couponCode`; both are
+  //    server-resolved so a crafted body cannot discount itself.
   const parsedItems = items.map((item) => {
-    const parseResult = PricingInputSchema.safeParse(item?.config);
+    const parseResult = ClientPricingInputSchema.safeParse(item?.config);
     if (!parseResult.success) {
-      throw new Error('خطا در اعتبارسنجی پیکربندی محصول.');
+      throw new CheckoutError('خطا در اعتبارسنجی پیکربندی محصول.');
     }
     return { input: parseResult.data, artworkId: relId(item?.artworkId) ?? null };
   });
@@ -53,43 +71,67 @@ export async function processCheckout(
   const finishingIds = [
     ...new Set(parsedItems.flatMap((i) => i.input.finishing.map((f) => f.id))),
   ];
+  const artworkIds = [
+    ...new Set(parsedItems.map((i) => i.artworkId).filter((id): id is number => id !== null)),
+  ];
 
-  const [orgs, priceListDoc, productsRes, turnaroundsRes, finishingsRes] = await Promise.all([
-    payload.find({
-      collection: 'organizations',
-      where: { users: { equals: userId }, status: { equals: 'active' } },
-      limit: 1,
-      depth: 0,
-      pagination: false,
-    }),
-    getCachedActivePriceList(payload),
-    payload.find({
-      collection: 'product-types',
-      where: { slug: { in: productSlugs } },
-      limit: productSlugs.length,
-      depth: 0,
-      pagination: false,
-    }),
-    payload.find({
-      collection: 'turnaround-options',
-      where: { id: { in: turnaroundIds } },
-      limit: turnaroundIds.length,
-      depth: 0,
-      pagination: false,
-    }),
-    finishingIds.length > 0
-      ? payload.find({
-          collection: 'finishing-options',
-          where: { id: { in: finishingIds } },
-          limit: finishingIds.length,
-          depth: 0,
-          pagination: false,
-        })
-      : Promise.resolve(null),
-  ]);
+  const [orgs, priceListDoc, productsRes, turnaroundsRes, finishingsRes, artworksRes] =
+    await Promise.all([
+      payload.find({
+        collection: 'organizations',
+        where: { users: { equals: userId }, status: { equals: 'active' } },
+        limit: 1,
+        depth: 0,
+        pagination: false,
+      }),
+      getCachedActivePriceList(payload),
+      payload.find({
+        collection: 'product-types',
+        where: { slug: { in: productSlugs } },
+        limit: productSlugs.length,
+        depth: 0,
+        pagination: false,
+      }),
+      payload.find({
+        collection: 'turnaround-options',
+        where: { id: { in: turnaroundIds } },
+        limit: turnaroundIds.length,
+        depth: 0,
+        pagination: false,
+      }),
+      finishingIds.length > 0
+        ? payload.find({
+            collection: 'finishing-options',
+            where: { id: { in: finishingIds } },
+            limit: finishingIds.length,
+            depth: 0,
+            pagination: false,
+          })
+        : Promise.resolve(null),
+      // Ownership gate for attached artwork. Without this, a customer could
+      // attach any artwork ID to their own order and then read the other
+      // customer's file through the populated order detail page.
+      artworkIds.length > 0
+        ? payload.find({
+            collection: 'artworks',
+            where: { id: { in: artworkIds }, owner: { equals: userId } },
+            limit: artworkIds.length,
+            depth: 0,
+            pagination: false,
+            select: {},
+          })
+        : Promise.resolve(null),
+    ]);
 
   if (!priceListDoc) {
-    throw new Error('هیچ لیست قیمت فعالی یافت نشد.');
+    throw new CheckoutError('هیچ لیست قیمت فعالی یافت نشد.', 500);
+  }
+
+  if (artworkIds.length > 0) {
+    const ownedIds = new Set((artworksRes?.docs ?? []).map((doc) => doc.id));
+    if (ownedIds.size !== artworkIds.length) {
+      throw new CheckoutError('فایل ضمیمه‌شده متعلق به شما نیست یا یافت نشد.', 403);
+    }
   }
 
   const organization: Organization | null = orgs.docs[0] ?? null;
@@ -127,17 +169,21 @@ export async function processCheckout(
   const priceSnapshots: Array<{ itemConfig: PricingInput; result: ReturnType<typeof calculatePrice> }> = [];
   const itemsToCreate: Array<{ productTypeId: number; input: PricingInput; artworkId: number | null; unitPrice: number; totalPrice: number }> = [];
 
-  for (const { input, artworkId } of parsedItems) {
-    const productType = productBySlug.get(input.productTypeSlug);
-    if (!productType) throw new Error('محصول یافت نشد.');
+  for (const { input: clientInput, artworkId } of parsedItems) {
+    const productType = productBySlug.get(clientInput.productTypeSlug);
+    if (!productType) throw new CheckoutError('محصول یافت نشد.', 404);
 
-    const turnaround = turnaroundById.get(String(input.turnaroundId));
-    if (!turnaround) throw new Error('گزینه زمان تحویل یافت نشد.');
+    const turnaround = turnaroundById.get(String(clientInput.turnaroundId));
+    if (!turnaround) throw new CheckoutError('گزینه زمان تحویل یافت نشد.', 404);
 
-    // Server-side authority: the client-provided tier is always overwritten.
-    input.customerTier = organization
-      ? { type: 'b2b', discountPercent: b2bDiscount }
-      : { type: 'guest', discountPercent: 0 };
+    // Server-side authority: the tier is derived from the authenticated user's
+    // organization, and no coupon can arrive from the client at all.
+    const input: PricingInput = {
+      ...clientInput,
+      customerTier: organization
+        ? { type: 'b2b', discountPercent: b2bDiscount }
+        : { type: 'guest', discountPercent: 0 },
+    };
 
     const context: PricingContext = {
       productConfig: {
@@ -191,11 +237,12 @@ export async function processCheckout(
   // 4. Credit check happens before any write so a failed wallet payment does
   //    not leave orphaned order-items behind.
   if (paymentMethod === 'wallet') {
-    if (!organization) throw new Error('کاربر به سازمانی متصل نیست و امکان خرید اعتباری ندارد.');
+    if (!organization) throw new CheckoutError('کاربر به سازمانی متصل نیست و امکان خرید اعتباری ندارد.', 403);
     const availableCredit = (organization.balance ?? 0) + (organization.creditLimit ?? 0);
     if (availableCredit < finalTotal) {
-      throw new Error(
-        `اعتبار کافی نیست. حداکثر قدرت خرید شما: ${new Intl.NumberFormat('fa-IR').format(availableCredit)} ریال`
+      throw new CheckoutError(
+        `اعتبار کافی نیست. حداکثر قدرت خرید شما: ${new Intl.NumberFormat('fa-IR').format(availableCredit)} ریال`,
+        402
       );
     }
   }

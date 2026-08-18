@@ -3,6 +3,7 @@ import { formatNumber } from "@/utils/format-number";
 import { requireUser, isStaff } from "@/lib/auth";
 import { parseBuyerInfo } from "@/lib/json-fields";
 import { relationId } from "@/lib/relations";
+import { PrintButton } from "@/components/ui/PrintButton";
 import "./print.css";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,13 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
       collection: "invoices",
       id,
       depth: 1, // order + customer
+      select: {
+        serialNumber: true,
+        createdAt: true,
+        buyerInfo: true,
+        customer: true,
+        order: true,
+      },
     })
     .catch(() => null);
 
@@ -53,23 +61,13 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
   };
 
   const totals = order.totals ?? { subtotal: 0, discount: 0, vat: 0, total: 0 };
-  const subtotal = totals.subtotal ?? 0;
-  const discount = totals.discount ?? 0;
-  const vat = totals.vat ?? 0;
-  const total = totals.total ?? 0;
 
   return (
     <div className="print-container" dir="rtl">
       {/* Action bar (hidden in print) */}
       <div className="no-print bg-slate-800 text-white p-4 flex justify-between items-center fixed top-0 left-0 right-0 z-50">
         <p className="font-medium">جهت تهیه خروجی PDF یا چاپ فاکتور کلیک کنید</p>
-        <button 
-          id="print-btn"
-          className="bg-primary-600 hover:bg-primary-700 px-6 py-2 rounded-lg font-bold"
-          type="button"
-        >
-          چاپ / دانلود PDF
-        </button>
+        <PrintButton className="bg-primary-600 hover:bg-primary-700 px-6 py-2 rounded-lg font-bold" />
       </div>
 
       <div className="invoice-paper">
@@ -162,13 +160,6 @@ export default async function PrintInvoicePage({ params }: { params: Promise<{ i
           </div>
         </div>
       </div>
-
-      {/* Script for the print button */}
-      <script dangerouslySetInnerHTML={{ __html: `
-        document.getElementById('print-btn').addEventListener('click', function() {
-          window.print();
-        });
-      `}} />
     </div>
   );
 }

@@ -21,6 +21,7 @@ try {
   const result = calculatePrice(input, priceList, context)
   console.log('--- محاسبه با موفقیت انجام شد ---')
   console.log(JSON.stringify(result, null, 2))
-} catch (e: any) {
-  console.error('Error:', e.message)
+} catch (e: unknown) {
+  console.error('Error:', e instanceof Error ? e.message : String(e))
+  process.exitCode = 1
 }

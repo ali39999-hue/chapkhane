@@ -19,29 +19,31 @@ export default async function B2BPortalPage() {
     return <div className="p-8">شما به هیچ سازمان همکار متصل نیستید.</div>;
   }
 
-  const organization = await payload
-    .findByID({
-      collection: "organizations",
-      id: orgId,
+  // Both reads key off `orgId`, which is already known; the transaction query
+  // does not actually depend on the organization document.
+  const [organization, transactions] = await Promise.all([
+    payload
+      .findByID({
+        collection: "organizations",
+        id: orgId,
+        depth: 0,
+      })
+      .catch(() => null),
+    payload.find({
+      collection: "credit-transactions",
+      where: { organization: { equals: orgId } },
+      sort: "-createdAt",
+      limit: 50,
       depth: 0,
-    })
-    .catch(() => null);
+      pagination: false,
+    }),
+  ]);
 
   if (!organization) {
     return <div className="p-8">شما به هیچ سازمان همکار متصل نیستید.</div>;
   }
 
   const availableCredit = (organization.balance || 0) + (organization.creditLimit || 0);
-
-  // Fetch transactions for this organization only
-  const transactions = await payload.find({
-    collection: "credit-transactions",
-    where: { organization: { equals: organization.id } },
-    sort: "-createdAt",
-    limit: 50,
-    depth: 0,
-    pagination: false,
-  });
 
   return (
     <div className="space-y-8 page-enter">

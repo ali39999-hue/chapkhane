@@ -1,5 +1,7 @@
 version: '3.8'
 
+# Local development stack only. Every credential below is a development
+# default; production must supply real values through the environment.
 services:
   postgres:
     image: postgres:16-alpine
@@ -45,7 +47,9 @@ services:
       - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
       - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-password123}
       - WEBHOOK_URL=http://host.docker.internal:3000/api/preflight-webhook
-      - PREFLIGHT_WEBHOOK_SECRET=${PREFLIGHT_WEBHOOK_SECRET:-chapkhane-internal-secret}
+      # No default: the worker refuses to start without a real secret, and the
+      # webhook rejects anything shorter than 32 characters.
+      - PREFLIGHT_WEBHOOK_SECRET=${PREFLIGHT_WEBHOOK_SECRET:?set PREFLIGHT_WEBHOOK_SECRET in .env}
 
 volumes:
   pgdata:
