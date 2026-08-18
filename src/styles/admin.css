@@ -28,3 +28,68 @@ html {
 .field-type {
   text-align: right;
 }
+
+/* Premium Light Industrial Theme Overrides for Payload */
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  --theme-bg: #020617 !important; /* slate-950 */
+  --theme-elevation-50: #0f172a !important; /* slate-900 */
+  --theme-elevation-100: #0f172a !important; /* slate-900 */
+  --theme-elevation-150: #1e293b !important; /* slate-800 */
+  --theme-elevation-200: #1e293b !important; /* slate-800 */
+  --theme-elevation-300: #334155 !important; /* slate-700 */
+  --theme-elevation-400: #475569 !important; /* slate-600 */
+  --theme-elevation-500: #64748b !important; /* slate-500 */
+  
+  /* Text */
+  --theme-text: #f8fafc !important; /* slate-50 */
+  --theme-success-500: #10b981 !important; /* emerald-500 */
+  --theme-error-500: #ef4444 !important; /* red-500 */
+  --theme-warning-500: #f59e0b !important; /* amber-500 */
+  
+  /* Accent Colors (Tech Blue) */
+  --theme-primary-50: #eff6ff !important;
+  --theme-primary-100: #dbeafe !important;
+  --theme-primary-200: #bfdbfe !important;
+  --theme-primary-300: #93c5fd !important;
+  --theme-primary-400: #60a5fa !important;
+  --theme-primary-500: #3b82f6 !important;
+  --theme-primary-600: #2563eb !important;
+  --theme-primary-700: #1d4ed8 !important;
+  --theme-primary-800: #1e40af !important;
+  --theme-primary-900: #1e3a8a !important;
+  
+  /* Shadows */
+  --theme-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5) !important;
+  --theme-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
+  --theme-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Make headers and borders look premium */
+.template-default__header {
+  border-bottom: 1px solid #1e293b !important;
+  background-color: #020617 !important;
+}
+
+.template-default__nav, .nav {
+  border-left: 1px solid #1e293b !important;
+  background-color: #020617 !important;
+}
+
+/* Button overrides */
+.btn--style-primary {
+  background-color: #2563eb !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 14px 0 rgba(37,99,235,0.39) !important;
+}
+.btn--style-primary:hover {
+  background-color: #1d4ed8 !important;
+  transform: translateY(-1px);
+}
+
+.card {
+  border-radius: 1rem !important;
+  border: 1px solid #1e293b !important;
+}

@@ -74,6 +74,10 @@ export default buildConfig({
   admin: {
     user: Users.slug,
     components: {
+      graphics: {
+        Logo: '@/components/admin/Logo',
+        Icon: '@/components/admin/Icon',
+      },
       views: {
         Dashboard: {
           Component: '@/components/admin/CustomDashboard',
