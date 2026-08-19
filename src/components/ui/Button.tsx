@@ -4,7 +4,7 @@ import { cn } from "@/utils/cn";
 import { ButtonHTMLAttributes, forwardRef } from "react";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "ghost";
+  variant?: "primary" | "secondary" | "outline" | "ghost" | "luxury";
   size?: "sm" | "md" | "lg";
   isLoading?: boolean;
 }
@@ -20,6 +20,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       secondary: "bg-secondary-500 text-white hover:bg-secondary-600 shadow-lg shadow-secondary-500/30",
       outline: "border-2 border-primary-600 text-primary-600 hover:bg-primary-50",
       ghost: "text-secondary-600 hover:bg-secondary-100",
+      luxury: "bg-ink-black text-gold-foil hover:bg-black border border-gold-foil/30 shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:shadow-[0_0_25px_rgba(212,175,55,0.3)] transition-all",
     };
 
     // Minimum 44px height on the two smaller sizes keeps every button above the

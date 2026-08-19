@@ -95,6 +95,7 @@ export interface Config {
     pages: Page;
     faqs: Faq;
     templates: Template;
+    'template-requests': TemplateRequest;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -130,6 +131,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     faqs: FaqsSelect<false> | FaqsSelect<true>;
     templates: TemplatesSelect<false> | TemplatesSelect<true>;
+    'template-requests': TemplateRequestsSelect<false> | TemplateRequestsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -877,6 +879,23 @@ export interface Template {
   createdAt: string;
 }
 /**
+ * درخواست‌های مشتریان برای طراحی قالب اختصاصی
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "template-requests".
+ */
+export interface TemplateRequest {
+  id: number;
+  message: string;
+  status?: ('pending' | 'in_progress' | 'completed') | null;
+  /**
+   * اگر کاربر در سایت لاگین بوده باشد اینجا ثبت می‌شود.
+   */
+  user?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1011,6 +1030,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'templates';
         value: number | Template;
+      } | null)
+    | ({
+        relationTo: 'template-requests';
+        value: number | TemplateRequest;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1556,6 +1579,17 @@ export interface TemplatesSelect<T extends boolean = true> {
   previewImage?: T;
   downloadFile?: T;
   isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "template-requests_select".
+ */
+export interface TemplateRequestsSelect<T extends boolean = true> {
+  message?: T;
+  status?: T;
+  user?: T;
   updatedAt?: T;
   createdAt?: T;
 }

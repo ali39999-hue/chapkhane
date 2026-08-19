@@ -28,10 +28,6 @@ export const Artworks: CollectionConfig = {
       access: { update: staffOnlyField },
     },
     { name: 'originalName', type: 'text', required: true },
-    { name: 'filename', type: 'text', required: true },
-    { name: 'mimeType', type: 'text', required: true },
-    { name: 'filesize', type: 'number', required: true },
-    { name: 'url', type: 'text', required: true },
     { name: 'fileHash', type: 'text', index: true },
     // Preflight and malware verdicts are machine-produced. They gate whether a
     // file may enter production, so a customer must not be able to write them

@@ -44,13 +44,19 @@ export function calculatePrice(
     throw new PricingError(`حداقل تیراژ مجاز ${minQ} عدد است.`)
   }
 
-  // Find base price row
+  // 1.5 Handle RFQ model early
+  const model = context.productConfig.pricingModel
+  if (model === 'rfq') {
+    throw new PricingError('این محصول نیازمند استعلام قیمت دستی است.')
+  }
+
+  // 1. Find Base Price
   const baseRow = priceList.rows.find(
     r =>
       sameId(r.productType, context.productConfig.id) &&
       sameId(r.paperType, input.paperTypeId) &&
-      r.grammage === input.grammage &&
-      r.sides === input.sides &&
+      (!r.grammage || r.grammage === input.grammage) &&
+      (!r.sides || r.sides === input.sides) &&
       !r.finishingOption // Base row has no finishing option specified
   )
 
@@ -61,7 +67,6 @@ export function calculatePrice(
   let rawSubtotal = 0
 
   // 2. Base Calculation
-  const model = context.productConfig.pricingModel
   if (model === 'tier') {
     // Offset logic
     const itemsPerForm = context.productConfig.itemsPerForm || 1000

@@ -579,16 +579,20 @@ export function Configurator({ product, papers, sizes, finishings, turnarounds }
 
             <Button 
               className="w-full h-14 text-base font-bold bg-primary-600 hover:bg-primary-500 text-white border-0 shadow-lg"
-              // Also blocked when there is no priced quote, so the customer
-              // cannot submit a configuration the engine refused.
-              disabled={fileStatus !== "passed" || submitting || totalPrice === null}
-              onClick={handleSubmit}
+              // Allow submission if RFQ? Or disable it for now. Let's keep it disabled if no price,
+              // but show the correct text.
+              disabled={fileStatus !== "passed" || submitting || (totalPrice === null && !quoteError?.includes("استعلام"))}
+              onClick={quoteError?.includes("استعلام") ? () => alert("لطفا با پشتیبانی تماس بگیرید.") : handleSubmit}
             >
               {submitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 size={18} className="animate-spin" aria-hidden="true" />
                   در حال ثبت سفارش...
                 </span>
+              ) : quoteError?.includes("استعلام") ? (
+                "تماس برای استعلام قیمت"
+              ) : quoteError ? (
+                "امکان محاسبه قیمت وجود ندارد"
               ) : totalPrice === null ? (
                 "ابتدا قیمت محاسبه شود"
               ) : fileStatus === "passed" ? (
